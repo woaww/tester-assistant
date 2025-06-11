@@ -1,0 +1,18 @@
+version: '3.7'
+services:
+  tester-assistant:
+    image: ${DEPLOY_IMAGE_NAME:?err}
+    networks:
+      - nginx-reverse-proxy
+    environment:
+      LLM_URL: http://d-gpgpu-a100-01.ct.ahml1.ru:8335/generate
+    volumes:
+      - ai-volume:/app/data
+    ports:
+      - 8513:8513
+networks:
+  nginx-reverse-proxy:
+    external: true
+volumes:
+  ai-volume:
+    external: true
