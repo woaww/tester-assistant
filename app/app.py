@@ -69,10 +69,16 @@ match OPTIONS:
         # Ввод количества кейсов
         count = st.number_input(NUMBER_OF_CASES, min_value=1, value=1, step=1)
         description = st.text_area(ST_INFO_ENTER_TEXT_LINK)
+
+        def process_description(raw_description: str, wiki_token: str) -> str:
+            if PATTERN_URL_IN_HTTP in raw_description:
+                wc = WikiClient(token=wiki_token)
+                return wc.get_wiki_scenario(raw_description)
+            return raw_description
         
-        wc = WikiClient(token=st.session_state.wiki_token)
-        description = wc.get_wiki_scenario(description) if PATTERN_URL_IN_HTTP in description else description
-        
+        # wc = WikiClient(token=st.session_state.wiki_token)
+        description = process_description(description, st.session_state.wiki_token)
+
         if st.button(BUTTON_GET_CASES):
             LOGGER.info(LOGGER_INFO_START, BUTTON_GET_CASES)
             if not description:
@@ -83,7 +89,7 @@ match OPTIONS:
                 with st.spinner(SPINNER):
                     response = choose_generate_response(
                                 type = TYPE_PROMPT_WIKI,
-                                description=description, 
+                                description=description,
                                 count=count,
                                 existing_cases=get_test_cases(),
                                 temperature=st.session_state.model_params.temperature,
