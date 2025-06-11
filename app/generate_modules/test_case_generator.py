@@ -31,7 +31,7 @@ def choose_generate_response(**kwargs):
     LOGGER.info(formatted_prompt)
     
     # Возвращаем результат
-    if KEY_GENERATE_MORE in kwargs and kwargs[KEY_GENERATE_MORE]:
+    if len(existing_cases) != 0:#KEY_GENERATE_MORE in kwargs and kwargs[KEY_GENERATE_MORE]:
         new_cases = generate_test_cases_with_memory(
             prompt=formatted_prompt,
             count=kwargs.get(KEY_COUNT, 1),
