@@ -74,7 +74,7 @@ match OPTIONS:
         def is_http_url(text: str) -> bool:
             return re.search(r"https?://", text) is not None
 
-        if is_http_url(description_text):
+        if is_http_url(description_text) and len(description_text) >100:
             try:
                 wc = WikiClient(token=st.session_state.wiki_token)
                 description = wc.get_wiki_scenario(description_text)
