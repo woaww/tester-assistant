@@ -1,5 +1,5 @@
 import yaml
-from text_constants import *
+# from text_constants import *
 
 
 def load_prompts(file_path="prompts.yaml"):
