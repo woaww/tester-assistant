@@ -51,10 +51,10 @@ class LocalLLM(CustomLLM):
         # print(answer)
         
         if response.status_code == 200:
-            if answer in ERROR_RESPONSE_LLM_MSG:
-                return ERROR_RESPONSE_LLM_MSG
-            else:
-                return answer
+            # if answer in ERROR_RESPONSE_LLM_MSG:
+            #     return ERROR_RESPONSE_LLM_MSG
+            # else:
+            return answer
         else:
             raise Exception(f"{ERROR_RESPONSE_LLM} {response}")
 
