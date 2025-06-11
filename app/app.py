@@ -69,22 +69,20 @@ match OPTIONS:
         
         # Ввод количества кейсов
         count = st.number_input(NUMBER_OF_CASES, min_value=1, value=1, step=1)
-        description = st.text_area(ST_INFO_ENTER_TEXT_LINK)
+        description_text = st.text_area(ST_INFO_ENTER_TEXT_LINK)
 
         def is_http_url(text: str) -> bool:
             return re.search(r"https?://", text) is not None
 
-        description = st.text_area("Введите текст или ссылку")
-
-        if is_http_url(description):
+        if is_http_url(description_text):
             try:
                 wc = WikiClient(token=st.session_state.wiki_token)
-                description = wc.get_wiki_scenario(description)
+                description = wc.get_wiki_scenario(description_text)
             except Exception as e:
                 st.error(f"Ошибка при загрузке сценария: {e}")
-                description = description
+                description = description_text
         else:
-            description = description
+            description = description_text
                 
         # wc = WikiClient(token=st.session_state.wiki_token)
         # description = process_description(description, st.session_state.wiki_token)
