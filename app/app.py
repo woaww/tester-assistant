@@ -31,6 +31,7 @@ from src.text_constants import *
 from src.models import *
 from src.ui_config import *
 from src.logger import LOGGER
+import re
 
 # import yaml
 
@@ -70,14 +71,23 @@ match OPTIONS:
         count = st.number_input(NUMBER_OF_CASES, min_value=1, value=1, step=1)
         description = st.text_area(ST_INFO_ENTER_TEXT_LINK)
 
-        def process_description(raw_description: str, wiki_token: str) -> str:
-            if PATTERN_URL_IN_HTTP in raw_description:
-                wc = WikiClient(token=wiki_token)
-                return wc.get_wiki_scenario(raw_description)
-            return raw_description
-        
+        def is_http_url(text: str) -> bool:
+            return re.search(r"https?://", text) is not None
+
+        description = st.text_area("Введите текст или ссылку")
+
+        if is_http_url(description):
+            try:
+                wc = WikiClient(token=st.session_state.wiki_token)
+                description = wc.get_wiki_scenario(description)
+            except Exception as e:
+                st.error(f"Ошибка при загрузке сценария: {e}")
+                description = description
+        else:
+            description = description
+                
         # wc = WikiClient(token=st.session_state.wiki_token)
-        description = process_description(description, st.session_state.wiki_token)
+        # description = process_description(description, st.session_state.wiki_token)
 
         if st.button(BUTTON_GET_CASES):
             LOGGER.info(LOGGER_INFO_START, BUTTON_GET_CASES)
