@@ -89,7 +89,7 @@ class WikiClient:
 
         try:
             page = self.get_wiki_page(page_id)
-            # self.page_title = page.get(Keys.TITLE, Keys.EMPTY)
+            self.page_title = page.get(Keys.TITLE, Keys.EMPTY)
 
             html_content = page['body']['storage']['value']
             scenario = self.extract_table_content(html_content)
