@@ -1,266 +1,214 @@
-# import re
-# import streamlit as st
-# from src.processing import *
-# from streamlit_modules.chat_logic import initialize_chat, display_chat, process_user_input
-# from streamlit_modules.settings import display_settings
-
-# App title
-# st.set_page_config(page_title="🤗💬 Ассистент тестировщиков")
-
-# # Инициализация состояния страницы
-# if "page" not in st.session_state:
-#     st.session_state.page = "main"
-
-
-# # Обработка навигации
-# if st.session_state.page == "main":
-#     ()
-# elif st.session_state.page == "":
-#     ()
-# elif st.session_state.page == "":
-#     ()
-
 import streamlit as st
-from streamlit_modules.session_manager import *
-from streamlit_modules.widgets import *
-from generate_modules.test_case_generator import choose_generate_response
-from generate_modules.llama_index_integration import *
-from src.wiki import WikiClient
-from src.utils import *
-from src.text_constants import *
-from src.models import *
-from src.ui_config import *
-from src.logger import LOGGER
-import re
+from streamlit_modules.session_manager import (init_session, get_wiki_cases, 
+                                               get_api_cases, add_case, is_unique)
+from generate_modules.test_case_generator import (generate_wiki_test_cases, generate_api_test_cases)
+from src.specification_api import SpecificationParser
+from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS
+from src.models import ModelParamsConfig#, ModelParams
+from streamlit_modules.widgets import render_param_slider, reset_params_to_default, is_wiki_url
+from src.utils import split_wiki_tests_by_separator, split_api_test_cases
 
-# import yaml
+# --- Инициализация ---
+init_session()
+model_params_config = ModelParamsConfig(**APP_SIDE_PANEL_PARAMS)
+
 
 # --- Боковая панель ---
 with st.sidebar:
-    st.header(TITLE_MAIN_PAGE)
-    params_config = get_full_params_config()
+    st.header(AppSettings.PAGE_HOME)
+    params_config = model_params_config
+
+    # Инициализация параметров в session_state при первом запуске
+    if 'model_params' not in st.session_state:
+        st.session_state.model_params = reset_params_to_default(params_config)
 
     params_dict = {}
-    for param_name, param_data in params_config:
-        value = render_param_slider(param_data)
+    for param_name, param_data in params_config.__dict__.items():
+        session_state_key = f"param_{param_name}"
+        value = render_param_slider(param_data, session_state_key)
         params_dict[param_name] = value
 
-    model_params = ModelParams(**params_dict)
-    st.session_state.model_params = model_params
+    st.session_state.model_params.update(params_dict)
 
 # --- Основная панель ---
+#TODO: смержить все кейсы в один вывод
 
-# st.set_page_config(page_title=TITLE_MAIN_PAGE)
-
-st.title(TITLE_MAIN_PAGE)
-
-init_session_state()
-# existing_cases=get_test_cases()
-
-# Выбор функции
-OPTIONS = st.selectbox(ST_SELECTBOX, OPTIONS_LIST)
+st.title(AppSettings.PAGE_HOME)
+OPTIONS = st.selectbox(AppSettings.ST_SELECTBOX, AppSettings.OPTIONS_LIST)
 
 match OPTIONS:
-    case "Генерация тестового кейса из сценария задачи (Вики)":
-        st.subheader(TYPE_OPTION_WIKI)
-        st.text(ST_INFO_WORK)
-        # st.subheader("Ввод токенов")
-        display_input_tokens(wiki=True)
-        
-        # Ввод количества кейсов
-        count = st.number_input(NUMBER_OF_CASES, min_value=1, value=1, step=1)
-        description_text = st.text_area(ST_INFO_ENTER_TEXT_LINK)
+    case AppSettings.TYPE_OPTION_WIKI:
+        st.subheader(AppSettings.TYPE_OPTION_WIKI)
+        url_or_text = st.text_area("Введите описание задачи или URL страницы Вики")
 
-        def is_http_url(text: str) -> bool:
-            return re.search(r"https?://", text) is not None
+        description_text = is_wiki_url(url_or_text)
 
-        if is_http_url(description_text) and len(description_text) < 100:
-            try:
-                wc = WikiClient(token=st.session_state.wiki_token)
-                description = wc.get_wiki_scenario(description_text)
-            except Exception as e:
-                st.error(f"Ошибка при загрузке сценария: {e}")
-                description = description_text
-        else:
-            description = description_text
-                
-        # wc = WikiClient(token=st.session_state.wiki_token)
-        # description = process_description(description, st.session_state.wiki_token)
-
-        if st.button(BUTTON_GET_CASES):
-            LOGGER.info(LOGGER_INFO_START, BUTTON_GET_CASES)
-            if not description:
-                st.warning(ST_WARNING_MSG_WIKI)
-            elif not check_wiki_token(st.session_state.wiki_token):
-                st.warning(ST_WARNING_MSG_WIKI)
+        if st.button(AppSettings.BUTTON_GET_CASES):
+            if not description_text:
+                st.warning("Введите описание задачи")
             else:
-                with st.spinner(SPINNER):
-                    response = choose_generate_response(
-                                type = TYPE_PROMPT_WIKI,
-                                description=description,
-                                count=count,
-                                existing_cases=get_test_cases(),
-                                temperature=st.session_state.model_params.temperature,
-                                max_new_tokens=st.session_state.model_params.max_new_tokens,
-                                repetition_penalty=st.session_state.model_params.repetition_penalty,
-                                frequency_penalty=st.session_state.model_params.frequency_penalty)
-                    st.markdown(response)
+                with st.spinner(AppSettings.SPINNER):
+                    model_params = st.session_state.model_params
 
-        if st.button(BUTTON_GET_MORE_CASES):
-            LOGGER.info(LOGGER_INFO_START, BUTTON_GET_MORE_CASES)
-            if not description:
-                st.warning(ST_WARNING_PLEASE_ENTER_DSCR)
+                    response = generate_wiki_test_cases(
+                        description=description_text,
+                        model_params=model_params)
+                    
+                    add_case(response, case_type='wiki')
+                    # new_cases = [line.strip("- ").strip() for line in response.splitlines() if line.startswith("- ")]
+                    # print(new_cases)
+                    # print(model_params)
+                    # print(new_cases)
+                    # unique_cases = [new_cases[0]]
+
+                    # Добавляем в session_state только уникальные
+                    # for case in new_cases:
+                    #     add_case(case, case_type='wiki')
+                        # add_case = {"id": len(get_wiki_cases()) + 1, "description": case}
+                        # 
+                        # if is_unique(case, case_type='wiki'):
+                        #     print('UNIQUE CASE:', case)
+                        #     unique_cases.append(case)
+                    
+                    # Отображаем результат
+                    st.markdown(split_wiki_tests_by_separator(get_wiki_cases()))
+                    
+        # Кнопка для генерации дополнительных тест-кейсов
+        if st.button("Сгенерировать дополнительные тестовые кейсы (Вики)"):
+            if not description_text:
+                st.warning("Введите описание задачи")
             else:
-                with st.spinner(SPINNER):
-                    response = choose_generate_response(
-                                type = TYPE_PROMPT_WIKI,
-                                description=description, 
-                                count=count, 
-                                generate_more=True,
-                                existing_cases=get_test_cases(),
-                                temperature=st.session_state.model_params.temperature,
-                                max_new_tokens=st.session_state.model_params.max_new_tokens,
-                                repetition_penalty=st.session_state.model_params.repetition_penalty,
-                                frequency_penalty=st.session_state.model_params.frequency_penalty)
-                    st.markdown(response)
+                with st.spinner("Генерация дополнительных тестовых кейсов..."):
+                    model_params = st.session_state.model_params
+                    response = generate_wiki_test_cases(
+                        # test_type="wiki",
+                        description=description_text,
+                        model_params=model_params)
+                    add_case(response, case_type='wiki')
+                    # new_cases = [line.strip("- ").strip() for line in response.splitlines() if line.startswith("- ")]
+                    # print(new_cases)
+                    # unique_cases = [new_cases[0]]
 
-            if st.button(ST_REMOVED_TOKENS):
-                display_delete_tokens()
+                    # Добавляем в session_state только уникальные
+                    # for case in new_cases:
+                        # add_cases = {"id": len(get_wiki_cases()) + 1, "description": case}
+                        # add_case(case, case_type='wiki')
+                        # if is_unique(case, case_type='wiki'):
+                        #     print('UNIQUE CASE:', case)
+                        #     unique_cases.append(case)
+                    
+                    # Отображаем результат
+                    st.markdown(split_wiki_tests_by_separator(get_wiki_cases()))
 
-    case "Генерация тестовых кейсов API (CURL)":
-        st.subheader(TYPE_OPTION_CURL)
-        
-        method = st.text_input(DSCR_METHOD)
-        endpoint = st.text_input(DSCR_ENDPOINT)
-        base_url = st.text_input(DSCR_BASE_URL, value=DSCR_BASE_URL_VALUE) 
-        count = st.number_input(DSCR_COUNT, min_value=1, value=1, step=1)
-        
-        if st.button(BUTTON_GET_CASES_CURL):
-            LOGGER.info(LOGGER_INFO_START, BUTTON_GET_CASES_CURL)
-            if not method or not endpoint:
-                st.warning(ST_WARNING_PLEASE_ENTER)
+    case AppSettings.TYPE_OPTION_CURL:
+        st.subheader(AppSettings.TYPE_OPTION_CURL)
+        spec_url = st.text_input("Введите URL спецификации API", 
+                                 value = AppSettings.DSCR_BASE_URL_VALUE)
+
+        if st.button("Сгенерировать тестовые кейсы в формате curl"):
+            if not spec_url:
+                st.warning("Введите URL спецификации API")
             else:
-                with st.spinner(SPINNER):
-                    response = choose_generate_response(
-                                type = TYPE_PROMPT_CURL,
-                                method=method, 
-                                endpoint=endpoint, 
-                                base_url=base_url,
-                                count=count,
-                                existing_cases=get_test_cases(),
-                                temperature=st.session_state.model_params.temperature,
-                                max_new_tokens=st.session_state.model_params.max_new_tokens,
-                                repetition_penalty=st.session_state.model_params.repetition_penalty,
-                                frequency_penalty=st.session_state.model_params.frequency_penalty)
-                    st.code(response, language=LANGUAGE_BASH)
-            LOGGER.info(LOGGER_INFO_END, BUTTON_GET_CASES_CURL)
-            if st.button(BUTTON_GET_MORE_CASES_CURL):
-                if not method or not endpoint:
-                    st.warning(ST_WARNING_PLEASE_ENTER)
-                else:
-                    with st.spinner(SPINNER):
-                        response = choose_generate_response(
-                            type = TYPE_PROMPT_CURL,
-                            method=method,
-                            endpoint=endpoint,
-                            base_url=base_url,
-                            count=count,
-                            generate_more=True,
-                            existing_cases=get_test_cases(),
-                            temperature=st.session_state.model_params.temperature,
-                            max_new_tokens=st.session_state.model_params.max_new_tokens,
-                            repetition_penalty=st.session_state.model_params.repetition_penalty,
-                            frequency_penalty=st.session_state.model_params.frequency_penalty)
+                try:
+                    parser = SpecificationParser(spec_url)
+                    spec_description = parser.parse_specification()
+                    with st.spinner(AppSettings.SPINNER):
+                        model_params = st.session_state.model_params
+                        response = generate_api_test_cases(
+                            description=spec_description,
+                            url_ref = spec_url,
+                            model_params=model_params
+                        )
+                        add_case(response, case_type='api')
+                        # new_cases = [line.strip("- ").strip() for line in response.splitlines() if line.startswith("- ")]
+                        # unique_cases = []
+
+                        # Добавляем в session_state только уникальные
+                        # for case in new_cases:
+                            # new_case = {"id": len(get_api_cases()) + 1, "description": case}
+                            # add_case(case, case_type='api')
+                            # if is_unique(case, case_type='api'):
+                            #     unique_cases.append(case)
+
+                        # Отображаем результат
+                        st.markdown(split_api_test_cases(get_api_cases()))
+
+                except Exception as e:
+                    st.error(f"Ошибка при обработке спецификации: {e}")
+
+        # Кнопка для генерации дополнительных тест-кейсов
+        if st.button("Сгенерировать дополнительные тестовые кейсы (API)"):
+            if not spec_url:
+                st.warning("Введите URL спецификации API")
+            else:
+                try:
+                    parser = SpecificationParser(spec_url)
+                    spec_description = parser.parse_specification()
+                    with st.spinner("Генерация дополнительных тестовых кейсов..."):
+                        model_params = st.session_state.model_params
+
+                        response = generate_api_test_cases(
+                            description=spec_description,
+                            url_ref = spec_url,
+                            model_params=model_params
+                        )
+                        add_case(response, case_type='api')
+                        # new_cases = [line.strip("- ").strip() for line in response.splitlines() if line.startswith("- ")]
+                        # unique_cases = []
+
+                        # Добавляем в session_state только уникальные
+                        # for case in new_cases:
+                            # new_case = {"id": len(get_api_cases()) + 1, "description": case}
+                            # add_case(case, case_type='api')
+                            # if is_unique(case, case_type='api'):
+                            #     unique_cases.append(case)
+
+                        # Отображаем результат
+                        st.markdown(split_api_test_cases(get_api_cases()))
+
+                except Exception as e:
+                    st.error(f"Ошибка при обработке спецификации: {e}")
+
+        # --- перевод на другие языки ---
+        language = st.selectbox("Выберите язык для преобразования тест-кейсов", 
+                                ["Java + RestAssured", "Python + Requests"])
+        if st.button("Преобразовать тестовые кейсы"):
             
-                        st.code(response, language=LANGUAGE_BASH)
+            api_cases = get_api_cases()
 
-    case "Генерация тестовых кейсов API (Java + RestAssured)":
-        st.subheader(TYPE_OPTION_JAVA)
-        
-        method = st.text_input(DSCR_METHOD)
-        endpoint = st.text_input(DSCR_ENDPOINT)
-        base_url = st.text_input(DSCR_BASE_URL, value=DSCR_BASE_URL_VALUE) 
-        count = st.number_input(DSCR_COUNT, min_value=1, value=1, step=1)
-
-        if st.button(BUTTON_GET_CASES_JAVA):
-            if not method or not endpoint:
-                st.warning(ST_WARNING_PLEASE_ENTER)
+            if not api_cases:
+                st.warning("Сначала сгенерируйте тестовые кейсы в формате curl.")
             else:
-                with st.spinner(SPINNER):
-                    response = choose_generate_response(
-                            type = TYPE_PROMPT_JAVA,
-                            method=method, 
-                            endpoint=endpoint, 
-                            base_url=base_url,
-                            count=count,
-                            existing_cases=get_test_cases(),
-                            temperature=st.session_state.model_params.temperature,
-                            max_new_tokens=st.session_state.model_params.max_new_tokens,
-                            repetition_penalty=st.session_state.model_params.repetition_penalty,
-                            frequency_penalty=st.session_state.model_params.frequency_penalty)
-                    st.code(response, language=LANGUAGE_JAVA)
+                with st.spinner("Преобразование тестовых кейсов..."):
 
-            if st.button(BUTTON_GET_MORE_CASES_JAVA):
-                if not method or not endpoint:
-                    st.warning(ST_WARNING_PLEASE_ENTER)
-                else:
-                    with st.spinner(SPINNER):
-                        response = choose_generate_response(
-                            type = TYPE_PROMPT_JAVA,
-                            method=method,
-                            endpoint=endpoint,
-                            base_url=base_url,
-                            count=count,
-                            generate_more=True,
-                            existing_cases=get_test_cases(),
-                            temperature=st.session_state.model_params.temperature,
-                            max_new_tokens=st.session_state.model_params.max_new_tokens,
-                            repetition_penalty=st.session_state.model_params.repetition_penalty,
-                            frequency_penalty=st.session_state.model_params.frequency_penalty)
-                        st.code(response, language=LANGUAGE_JAVA)
+                    model_params = st.session_state.model_params
+                    
+                    response =  generate_api_test_cases(
+                        description="\n".join(api_cases),
+                        url_ref = spec_url,
+                        model_params=model_params,
+                        language=language
+                    )
 
-    case "Генерация тестовых кейсов API (Python + Requests)":
-        st.subheader(TYPE_OPTION_PYTHON)
-        
-        method = st.text_input(DSCR_METHOD)
-        endpoint = st.text_input(DSCR_ENDPOINT)
-        base_url = st.text_input(DSCR_BASE_URL, value=DSCR_BASE_URL_VALUE) 
-        count = st.number_input(DSCR_COUNT, min_value=1, value=1, step=1)
-        
-        if st.button(BUTTON_GET_CASES_PYTHON):
-            if not method or not endpoint:
-                st.warning(ST_WARNING_PLEASE_ENTER)
-            else:
-                with st.spinner(SPINNER):
-                    response = choose_generate_response(
-                            type = TYPE_PROMPT_PYTHON,
-                            method=method, 
-                            endpoint=endpoint, 
-                            base_url=base_url,
-                            count=count,
-                            existing_cases=get_test_cases(),
-                            temperature=st.session_state.model_params.temperature,
-                            max_new_tokens=st.session_state.model_params.max_new_tokens,
-                            repetition_penalty=st.session_state.model_params.repetition_penalty,
-                            frequency_penalty=st.session_state.model_params.frequency_penalty)
-                    st.code(response, language=LANGUAGE_PYTHON)
-                
-            if st.button(BUTTON_GET_MORE_CASES_PYTHON):
-                if not method or not endpoint:
-                    st.warning(ST_WARNING_PLEASE_ENTER)
-                else:
-                    with st.spinner(SPINNER):
-                        response = choose_generate_response(
-                            type = TYPE_PROMPT_PYTHON,
-                            method=method,
-                            endpoint=endpoint,
-                            base_url=base_url,
-                            count=count,
-                            generate_more=True,
-                            existing_cases=get_test_cases(),
-                            temperature=st.session_state.model_params.temperature,
-                            max_new_tokens=st.session_state.model_params.max_new_tokens,
-                            repetition_penalty=st.session_state.model_params.repetition_penalty,
-                            frequency_penalty=st.session_state.model_params.frequency_penalty)
+                    st.markdown(response)
 
-                        st.code(response, language=LANGUAGE_PYTHON)
+
+# ---  Сворачиваемый контейнер для тест-кейсов ---
+# with st.container():
+#     st.subheader("Сгенерированные тест-кейсы")
+#     wiki_cases = get_wiki_cases()
+#     api_cases = get_api_cases()
+
+#     with st.expander("Тест-кейсы из Вики", expanded=False):
+#         if not wiki_cases:
+#             st.info("Нет сгенерированных тест-кейсов для Вики.")
+#         else:
+#             for case in wiki_cases:
+#                 st.write(f"ID: {case['id']} — Описание: {case['description']}")
+
+#     with st.expander("Тест-кейсы для API", expanded=False):
+#         if not api_cases:
+#             st.info("Нет сгенерированных тест-кейсов для API.")
+#         else:
+#             for case in api_cases:
+#                 st.write(f"ID: {case['id']} — Описание: {case['description']}")

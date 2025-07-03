@@ -1,109 +1,90 @@
-from src.logger import LOGGER
-from src.text_constants import *
 import streamlit as st
-def init_session_state():
-    LOGGER.info(LOGGER_INFO_START, init_session_state.__name__)
-    if SESSION_STATE_JIRA_TOKEN not in st.session_state:
-        st.session_state.jira_token = ""
-    if SESSION_STATE_WIKI_TOKEN not in st.session_state:
-        st.session_state.wiki_token = ""
-    if SESSION_STATE_TEST_CASES not in st.session_state:
-        st.session_state.test_cases = []
-    if SESSION_STATE_EXISTING_CASES not in st.session_state:
-        st.session_state.existing_cases = []
-    LOGGER.info(LOGGER_INFO_END, init_session_state.__name__)
+from src.utils import generate_response
 
-def get_test_cases():
-    """Возвращает уже сгенерированные тест-кейсы."""
-    LOGGER.info(LOGGER_INFO_START, get_test_cases.__name__)
-    if SESSION_STATE_TEST_CASES not in st.session_state:
-        st.session_state.test_cases = []
-    LOGGER.info(LOGGER_INFO_END, get_test_cases.__name__)
-    return st.session_state.test_cases
+def init_session():
+    if 'wiki_cases' not in st.session_state:
+        st.session_state.wiki_cases = []
+    if 'api_cases' not in st.session_state:
+        st.session_state.api_cases = []
 
-def add_test_case(case):
-    """
-    Добавляет новый тест-кейс в session_state.
-    
-    :param case: Строка с тест-кейсом
-    """
-    # init_session_state()
-    LOGGER.info(LOGGER_INFO_START, add_test_case.__name__)
-    if not case:
-        LOGGER.warning(LOGGER_WARNING_EMPTY_CASE) 
-        return
-    
-    # Добавляем кейс в session_state.test_cases
-    st.session_state.test_cases.append(case)
-    
-    # Добавляем кейс в session_state.existing_cases
-    st.session_state.existing_cases.append(case)
-    LOGGER.info(LOGGER_INFO_END, add_test_case.__name__)
+def get_wiki_cases():
+    return st.session_state.wiki_cases
 
-def delete_tokens(jira_token=None, wiki_token=None):
-    """
-    Удаляет токены из сессии.
-    
-    :param jira_token: Токен Jira (необязательный)
-    :param wiki_token: Токен Wiki (необязательный)
-    """
-    LOGGER.info(LOGGER_INFO_START, delete_tokens.__name__)
-    if jira_token is None:
-        st.session_state.jira_token = KEY_EMPTY_KEY
+def get_api_cases():
+    return st.session_state.api_cases
+
+def add_case(new_case, case_type='wiki'):
+    if case_type == 'wiki':
+        st.session_state.wiki_cases.append(new_case)
     else:
-        if st.session_state.jira_token == jira_token:
-            st.session_state.jira_token = KEY_EMPTY_KEY
+        st.session_state.api_cases.append(new_case)
+    # Проверяем на уникальность
+    # if is_unique(new_case, case_type):
+    #     if case_type == 'wiki':
+    #         st.session_state.wiki_cases.append(new_case)
+    #     else:
+    #         st.session_state.api_cases.append(new_case)
+    #     return True
+    # else:
+    #     return False
 
-    if wiki_token is None:
-        st.session_state.wiki_token = KEY_EMPTY_KEY
-    else:
-        if st.session_state.wiki_token == wiki_token:
-            st.session_state.wiki_token = KEY_EMPTY_KEY
+def fn(new_case):
+        if 'description' in new_case:
+            return new_case['description']
+        else:
+            return new_case
 
-    LOGGER.info(LOGGER_INFO_END, delete_tokens.__name__)
+def is_unique(new_case, case_type='wiki'):
 
+    # Получаем список тест-кейсов по типу
+    cases = get_wiki_cases() if case_type == 'wiki' else get_api_cases()
 
-def check_tokens(jira_token: str, wiki_token: str) -> bool:
+    # Если список пуст — уникальный
+    if not cases:
+        return True
+
+    # Собрать историю тест-кейсов
+    history = "\n".join([f"- {case['id']}: {case['description']}" for case in cases])
+
+    # Формируем промпт для LLM
+    prompt = f"""
+    Пожалуйста, проанализируй следующий тест-кейс и определи, является ли он дубликатом по смыслу среди уже существующих.
+
+    Новый тест-кейс:
+    {fn(new_case)}
+
+    Список уже существующих тест-кейсов:
+    {history}
+
+    Ответ:
+    - "Дубликат" если по смыслу повторяет один из уже существующих.
+    - "Уникальный" если не повторяет.
+
+    Также верни **вероятность** (от 0 до 1), с которой этот тест-кейс может быть дубликатом.
+
+    Формат ответа:
+    [Тип] [Вероятность]
+    Пример:
+    Дубликат 0.85
+    Уникальный 0.15
     """
-    Проверяет, введены ли токены.
-    
-    :param jira_token: Токен Jira
-    :param wiki_token: Токен Wiki
-    :return: True, если хотя бы один токен введён, иначе False
-    """
-    LOGGER.info(LOGGER_INFO_START, check_tokens.__name__)
-    if not jira_token and not wiki_token:
-        LOGGER.info(LOGGER_INFO_END, check_tokens.__name__)
+
+    # Вызов твоей локальной модели (LocalLLM)
+    response = generate_response(prompt)
+
+    # Логирование
+    st.write(f"LLM Response: {response}")
+
+    # Парсим ответ
+    try:
+        parts = response.strip().split()
+        case_type = parts[0]
+        probability = float(parts[1])
+        return case_type == "Уникальный"
+    except Exception as e:
+        st.warning(f"Ошибка при парсинге ответа модели: {e}")
         return False
-    LOGGER.info(LOGGER_INFO_END, check_tokens.__name__)
-    return True
 
-def check_jira_token(jira_token: str) -> bool:
-    """Проверяет, введён ли Jira-токен."""
-    return bool(jira_token)
-
-def check_wiki_token(wiki_token: str) -> bool:
-    """Проверяет, введён ли Wiki-токен."""
-    return bool(wiki_token)
-
-
-# Функция для проверки наличия токенов
-def validate_tokens():
-    if not check_tokens(st.session_state.jira_token, st.session_state.wiki_token):
-        st.warning(ST_WARNING_TOKEN)
-        return False
-    return True
-
-# Функция для проверки Jira-токена
-def validate_jira_token():
-    if not check_jira_token(st.session_state.jira_token):
-        st.warning(ST_WARNING_TOKEN_JIRA)
-        return False
-    return True
-
-# Функция для проверки Wiki-токена
-def validate_wiki_token():
-    if not check_wiki_token(st.session_state.wiki_token):
-        st.warning(ST_WARNING_TOKEN_WIKI)
-        return False
-    return True
+def clear_session():
+    st.session_state.wiki_cases = []
+    st.session_state.api_cases = []
