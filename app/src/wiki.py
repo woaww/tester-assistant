@@ -21,10 +21,10 @@ class WikiClient:
         self.confluence = Confluence(
             url=UtilitsParsing.URL_WIKI, token=WIKI_TOKEN)
 
-    def is_wiki_url(self, text: str) -> bool:
-        """Проверяет, является ли введённый текст ссылкой на страницу Вики."""
-        parsed = self._parse_url(text)
-        return "confluence" in parsed.netloc or "wiki" in parsed.netloc
+    # def is_wiki_url(self, text: str) -> bool:
+    #     """Проверяет, является ли введённый текст ссылкой на страницу Вики."""
+    #     parsed = self._parse_url(text)
+    #     return "confluence" in parsed.netloc or "wiki" in parsed.netloc
 
     def _parse_url(self, url: str):
         """Парсит URL и возвращает объект urlparse."""
@@ -89,7 +89,7 @@ class WikiClient:
 
         try:
             page = self.get_wiki_page(page_id)
-            self.page_title = page.get(Keys.TITLE, Keys.EMPTY)
+            # self.page_title = page.get(Keys.TITLE, Keys.EMPTY)
 
             html_content = page['body']['storage']['value']
             scenario = self.extract_table_content(html_content)

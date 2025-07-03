@@ -6,6 +6,7 @@ services:
       - nginx-reverse-proxy
     environment:
       LLM_URL: http://d-gpgpu-a100-01.ct.ahml1.ru:8335/generate
+      WIKI_TOKEN: ${WIKI_TOKEN}
     volumes:
       - ai-volume:/app/data
     ports:
