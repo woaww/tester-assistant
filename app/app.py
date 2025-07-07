@@ -1,6 +1,6 @@
 import streamlit as st
 from streamlit_modules.session_manager import (init_session, get_wiki_cases, 
-                                               get_api_cases, add_case, is_unique)
+                                               get_api_cases, add_case)
 from generate_modules.test_case_generator import (generate_wiki_test_cases, generate_api_test_cases)
 from src.specification_api import SpecificationParser
 from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS
@@ -55,21 +55,7 @@ match OPTIONS:
                         model_params=model_params)
                     
                     add_case(response, case_type='wiki')
-                    # new_cases = [line.strip("- ").strip() for line in response.splitlines() if line.startswith("- ")]
-                    # print(new_cases)
-                    # print(model_params)
-                    # print(new_cases)
-                    # unique_cases = [new_cases[0]]
-
-                    # Добавляем в session_state только уникальные
-                    # for case in new_cases:
-                    #     add_case(case, case_type='wiki')
-                        # add_case = {"id": len(get_wiki_cases()) + 1, "description": case}
-                        # 
-                        # if is_unique(case, case_type='wiki'):
-                        #     print('UNIQUE CASE:', case)
-                        #     unique_cases.append(case)
-                    
+                            
                     # Отображаем результат
                     st.markdown(split_wiki_tests_by_separator(get_wiki_cases()))
                     
@@ -81,29 +67,20 @@ match OPTIONS:
                 with st.spinner("Генерация дополнительных тестовых кейсов..."):
                     model_params = st.session_state.model_params
                     response = generate_wiki_test_cases(
-                        # test_type="wiki",
                         description=description_text,
                         model_params=model_params)
-                    add_case(response, case_type='wiki')
-                    # new_cases = [line.strip("- ").strip() for line in response.splitlines() if line.startswith("- ")]
-                    # print(new_cases)
-                    # unique_cases = [new_cases[0]]
-
-                    # Добавляем в session_state только уникальные
-                    # for case in new_cases:
-                        # add_cases = {"id": len(get_wiki_cases()) + 1, "description": case}
-                        # add_case(case, case_type='wiki')
-                        # if is_unique(case, case_type='wiki'):
-                        #     print('UNIQUE CASE:', case)
-                        #     unique_cases.append(case)
                     
-                    # Отображаем результат
+                    rep_w_separator = '---\n\n'+'---\n\n'+'---\n\n'+response
+
+                    add_case(rep_w_separator, case_type='wiki')
+                
                     st.markdown(split_wiki_tests_by_separator(get_wiki_cases()))
 
     case AppSettings.TYPE_OPTION_CURL:
         st.subheader(AppSettings.TYPE_OPTION_CURL)
         spec_url = st.text_input("Введите URL спецификации API", 
                                  value = AppSettings.DSCR_BASE_URL_VALUE)
+        spec_method = st.text_input("Введите метод")
 
         if st.button("Сгенерировать тестовые кейсы в формате curl"):
             if not spec_url:
@@ -112,23 +89,17 @@ match OPTIONS:
                 try:
                     parser = SpecificationParser(spec_url)
                     spec_description = parser.parse_specification()
+                    
                     with st.spinner(AppSettings.SPINNER):
                         model_params = st.session_state.model_params
                         response = generate_api_test_cases(
                             description=spec_description,
                             url_ref = spec_url,
+                            spec_method=spec_method,
                             model_params=model_params
                         )
-                        add_case(response, case_type='api')
-                        # new_cases = [line.strip("- ").strip() for line in response.splitlines() if line.startswith("- ")]
-                        # unique_cases = []
 
-                        # Добавляем в session_state только уникальные
-                        # for case in new_cases:
-                            # new_case = {"id": len(get_api_cases()) + 1, "description": case}
-                            # add_case(case, case_type='api')
-                            # if is_unique(case, case_type='api'):
-                            #     unique_cases.append(case)
+                        add_case(response, case_type='api')
 
                         # Отображаем результат
                         st.markdown(split_api_test_cases(get_api_cases()))
@@ -150,18 +121,12 @@ match OPTIONS:
                         response = generate_api_test_cases(
                             description=spec_description,
                             url_ref = spec_url,
+                            spec_method=spec_method,
                             model_params=model_params
                         )
-                        add_case(response, case_type='api')
-                        # new_cases = [line.strip("- ").strip() for line in response.splitlines() if line.startswith("- ")]
-                        # unique_cases = []
+                        rep_w_separator = '---\n\n'+'---\n\n'+'---\n\n'+response
 
-                        # Добавляем в session_state только уникальные
-                        # for case in new_cases:
-                            # new_case = {"id": len(get_api_cases()) + 1, "description": case}
-                            # add_case(case, case_type='api')
-                            # if is_unique(case, case_type='api'):
-                            #     unique_cases.append(case)
+                        add_case(rep_w_separator, case_type='api')
 
                         # Отображаем результат
                         st.markdown(split_api_test_cases(get_api_cases()))
@@ -191,24 +156,3 @@ match OPTIONS:
                     )
 
                     st.markdown(response)
-
-
-# ---  Сворачиваемый контейнер для тест-кейсов ---
-# with st.container():
-#     st.subheader("Сгенерированные тест-кейсы")
-#     wiki_cases = get_wiki_cases()
-#     api_cases = get_api_cases()
-
-#     with st.expander("Тест-кейсы из Вики", expanded=False):
-#         if not wiki_cases:
-#             st.info("Нет сгенерированных тест-кейсов для Вики.")
-#         else:
-#             for case in wiki_cases:
-#                 st.write(f"ID: {case['id']} — Описание: {case['description']}")
-
-#     with st.expander("Тест-кейсы для API", expanded=False):
-#         if not api_cases:
-#             st.info("Нет сгенерированных тест-кейсов для API.")
-#         else:
-#             for case in api_cases:
-#                 st.write(f"ID: {case['id']} — Описание: {case['description']}")

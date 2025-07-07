@@ -1,4 +1,4 @@
-from src.models import ModelParams
+# from src.models import ModelParams
 from src.logger import LOGGER
 from src.text_constants import LoggerMsg
 from src.text_constants import KEY_CONTENT, KEY_EMPTY_KEY
@@ -32,7 +32,7 @@ def generate_wiki_test_cases(description: str,
 def generate_api_test_cases(description: str, 
                             url_ref: str,
                             model_params, 
-                            existing_cases = None,
+                            spec_method: str = None,
                             language: str = None) -> str:
     
    
@@ -41,13 +41,12 @@ def generate_api_test_cases(description: str,
     if language is None or language.lower() == "curl":
         prompt_template = PROMPTS.get("api_curl_test_case_prompt", {}).get(KEY_CONTENT, KEY_EMPTY_KEY)
         formatted_prompt = format_prompt(prompt_template=prompt_template,
-                                         url_ref=url_ref,
-                                        # existing_cases=existing_cases,
+                                        url_ref=url_ref,
+                                        method=spec_method,
                                         description=description)
     else:
         prompt_template = PROMPTS.get("api_languages_test_case_prompt", {}).get(KEY_CONTENT, KEY_EMPTY_KEY)
         formatted_prompt = format_prompt(prompt_template=prompt_template,
-                                        existing_cases=existing_cases,
                                         description=description,
                                         language=language)
     
