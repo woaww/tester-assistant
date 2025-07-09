@@ -13,11 +13,6 @@ LOG_DATETIME_FORMAT = '%Y-%m-%d:%H:%M:%S'
 
 # Константны для display settings
 
-
-
-SEPARATION_STR  = "---"
-
-
 HEADER_SETTINGS = "Настройки"
 CURRENT_GENERATION_PARAMETERS = "Текущие параметры генерации:"
 CHOOSE_PROMPT = "Задайте промпт:"
@@ -71,9 +66,7 @@ TNK_EVAL = "Спасибо за оценку и обратную связь!"
 DISLIKE = "👎" 
 DCRPTN_DISLIKE = "Не очень"
 DEFAULT_RATING_EMOJI = {"like": LIKE, "dislike": DISLIKE}
-EVAL_AMZ = "🔥"
-EVAL_OK = "👌"
-EVAL_SAD = "😔"
+
 
 HEADERS = {
     "Content-Type": "application/json", 
@@ -124,8 +117,6 @@ KEY_TYPE = "type"
 
 # constatns for formatted data
 
-
-
 NOT_HEADERS_TIM = "ТИМ"
 NOT_HEADERS_US = "US"
 
@@ -162,10 +153,6 @@ SELECTOR_STR_ALT_USLOVIE = f'th:-soup-contains("{PART_PAGE_ALT_USLOVIE}") + td'
 SELECTOR_STR_SCENARIO = f'th:-soup-contains("{PART_PAGE_SCENARIO}") + td'
 SELECTOR_STR_POSTUSLOVIE = f'th:-soup-contains("{PART_PAGE_POSTUSLOVIE}") + td'
 
-LANGUAGE_BASH = "bash"
-LANGUAGE_JAVA = "java"
-LANGUAGE_PYTHON = "python"
-LANGUAGE_CURL = "CURL"
 
 ST_WARNING_PLEASE_ENTER = "Пожалуйста, введите метод и endpoint."
 ST_WARNING_PLEASE_ENTER_DSCR = "Пожалуйста, введите описание задачи."
@@ -185,14 +172,35 @@ BUTTON_GET_CASES_CURL = f"{BUTTON_GET_CASES} {LANGUAGE_CURL} тесты"
 BUTTON_GET_MORE_CASES_CURL = f"{BUTTON_GET_MORE_CASES} {LANGUAGE_CURL} тесты"
 
 
-TYPE_PROMPT_PYTHON = 'api_python_test_case_prompt'
-TYPE_PROMPT_JAVA = 'api_java_test_case_prompt'
-TYPE_PROMPT_CURL = 'api_curl_test_case_prompt'
-TYPE_PROMPT_WIKI = 'test_case_prompt'
+class Separatiors:
+    sep_cases: str = '---\n\n'+'---\n\n'+'---\n\n'
 
-
-ERROR_ADD_TEST_CASE = "Ошибка при добавлении тест-кейса: "
-ERROR_PROMPT_NOT_FOUND = "Промпт не найден"
+class PostProcStr:
+    general_text_0: str = "Эти тесты покрывают основные сценарии использования метода,"
+    general_text_1: str = "включая проверку существования заявления, корректность передаваемых данных,"
+    general_text_2: str = "авторизацию и использование правильных HTTP-методов."
+    undefined = "undefined"
+    prompt_text_0: str = "Обратите внимание на то, что каждый тест-кейс содержит уникальный запрос и описание,"
+    prompt_text_1: str = "которое помогает понять его цель и ожидаемый результат."
+    prompt_text_3: str = "Тест-кейсы должны быть уникальными и покрывать все возможные сценарии использования API."
+    resp_text_0: str = "Note that the actual status codes "
+    resp_text_1: str = "and responses may vary depending on the implementation of the API being tested. " 
+    resp_text_2: str = "The above code assumes a successful response for valid requests "
+    resp_text_3: str = "and an error response for invalid or non-existent full-statement-id."
+    resp_text_4: str = "Note that I've used assertions to check the expected behavior of each test case."
+    resp_text_5: str = "You can replace these assertions with your own logic"
+    resp_text_6: str = " or use a testing framework like pytest to run these tests automatically."
+    resp_text_7: str = "Here are the rewritten test cases in Python using the requests library:"
+    resp_text_8: str = "This solution provides a set of JUnit tests for each of the given"
+    resp_text_9: str = " cURL commands using the RestAssured library in Java."
+    resp_text_10: str = " Each method represents one test case,."
+    resp_text_11: str = " with appropriate headers and request bodies included as necessary."
+    resp_text_12: str = " Assertions can be added within the methods to validate the expected responses from the server."
+    LIST_DEL_STR: list = [general_text_2, general_text_1, general_text_0, undefined,
+                          prompt_text_1, prompt_text_0, prompt_text_3, resp_text_0, 
+                          resp_text_1, resp_text_2, resp_text_3,resp_text_4, 
+                          resp_text_5, resp_text_6, resp_text_7, resp_text_8,
+                          resp_text_9, resp_text_10, resp_text_11, resp_text_12]
 
 class Keys:    
     GENERATED_TEXT: str = "generated_text"

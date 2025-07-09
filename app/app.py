@@ -3,8 +3,8 @@ from streamlit_modules.session_manager import (init_session, get_wiki_cases,
                                                get_api_cases, add_case)
 from generate_modules.test_case_generator import (generate_wiki_test_cases, generate_api_test_cases)
 from src.specification_api import SpecificationParser
-from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS
-from src.models import ModelParamsConfig#, ModelParams
+from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS, Separatiors
+from src.models import ModelParamsConfig
 from streamlit_modules.widgets import render_param_slider, reset_params_to_default, is_wiki_url
 from src.utils import split_wiki_tests_by_separator, split_api_test_cases
 
@@ -31,7 +31,6 @@ with st.sidebar:
     st.session_state.model_params.update(params_dict)
 
 # --- Основная панель ---
-#TODO: смержить все кейсы в один вывод
 
 st.title(AppSettings.PAGE_HOME)
 OPTIONS = st.selectbox(AppSettings.ST_SELECTBOX, AppSettings.OPTIONS_LIST)
@@ -44,6 +43,9 @@ match OPTIONS:
         description_text = is_wiki_url(url_or_text)
 
         if st.button(AppSettings.BUTTON_GET_CASES):
+
+            st.session_state.wiki_cases = []
+
             if not description_text:
                 st.warning("Введите описание задачи")
             else:
@@ -70,7 +72,7 @@ match OPTIONS:
                         description=description_text,
                         model_params=model_params)
                     
-                    rep_w_separator = '---\n\n'+'---\n\n'+'---\n\n'+response
+                    rep_w_separator = Separatiors.sep_cases+response
 
                     add_case(rep_w_separator, case_type='wiki')
                 
@@ -83,12 +85,15 @@ match OPTIONS:
         spec_method = st.text_input("Введите метод")
 
         if st.button("Сгенерировать тестовые кейсы в формате curl"):
+
+            st.session_state.api_cases = []
+
             if not spec_url:
                 st.warning("Введите URL спецификации API")
             else:
                 try:
                     parser = SpecificationParser(spec_url)
-                    spec_description = parser.parse_specification()
+                    spec_description = parser.parse_specification(spec_method)
                     
                     with st.spinner(AppSettings.SPINNER):
                         model_params = st.session_state.model_params
@@ -114,7 +119,8 @@ match OPTIONS:
             else:
                 try:
                     parser = SpecificationParser(spec_url)
-                    spec_description = parser.parse_specification()
+                    spec_description = parser.parse_specification(spec_method)
+
                     with st.spinner("Генерация дополнительных тестовых кейсов..."):
                         model_params = st.session_state.model_params
 
@@ -124,7 +130,7 @@ match OPTIONS:
                             spec_method=spec_method,
                             model_params=model_params
                         )
-                        rep_w_separator = '---\n\n'+'---\n\n'+'---\n\n'+response
+                        rep_w_separator = Separatiors.sep_cases+response
 
                         add_case(rep_w_separator, case_type='api')
 

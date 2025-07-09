@@ -1,6 +1,5 @@
-# from src.models import ModelParams
 from src.logger import LOGGER
-from src.text_constants import LoggerMsg
+from src.text_constants import LoggerMsg, PostProcStr
 from src.text_constants import KEY_CONTENT, KEY_EMPTY_KEY
 from src.utils import load_prompts
 from src.utils import generate_response
@@ -12,6 +11,14 @@ def format_prompt(prompt_template, **kwargs):
     LOGGER.info(LoggerMsg.INFO_END, format_prompt.__name__,'')
     return prompt_template.format(**kwargs)
 
+def post_process_response(response: str) -> str:
+    LOGGER.info(LoggerMsg.INFO_START, post_process_response.__name__,'')
+    
+    for el in PostProcStr.LIST_DEL_STR:
+        response = response.replace(el, '')
+
+    LOGGER.info(LoggerMsg.INFO_END, post_process_response.__name__,'')
+    return response
 
 def generate_wiki_test_cases(description: str, 
                              model_params) -> str:
@@ -23,7 +30,7 @@ def generate_wiki_test_cases(description: str,
                                     description=description)
     print(formatted_prompt)
     response = generate_response(prompt_input=formatted_prompt, 
-                            model_params=model_params)#.dict())
+                            model_params=model_params)
 
     LOGGER.info(LoggerMsg.INFO_END, generate_wiki_test_cases.__name__,'')
 
@@ -34,7 +41,6 @@ def generate_api_test_cases(description: str,
                             model_params, 
                             spec_method: str = None,
                             language: str = None) -> str:
-    
    
     LOGGER.info(LoggerMsg.INFO_START, generate_api_test_cases.__name__,'')
 
@@ -51,7 +57,7 @@ def generate_api_test_cases(description: str,
                                         language=language)
     
     response = generate_response(prompt_input=formatted_prompt, 
-                            model_params=model_params)#.dict())
+                            model_params=model_params)
 
     LOGGER.info(LoggerMsg.INFO_END, generate_api_test_cases.__name__,'')
 

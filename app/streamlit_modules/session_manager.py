@@ -4,8 +4,15 @@ from src.utils import generate_response
 def init_session():
     if 'wiki_cases' not in st.session_state:
         st.session_state.wiki_cases = []
+
+    if "wiki_cases_generated" not in st.session_state:
+        st.session_state.wiki_cases_generated = False
+
     if 'api_cases' not in st.session_state:
         st.session_state.api_cases = []
+
+    if "api_cases_generated" not in st.session_state:
+        st.session_state.api_cases_generated = False
 
 def get_wiki_cases():
     return st.session_state.wiki_cases
@@ -18,15 +25,6 @@ def add_case(new_case, case_type='wiki'):
         st.session_state.wiki_cases.append(new_case)
     else:
         st.session_state.api_cases.append(new_case)
-    # Проверяем на уникальность
-    # if is_unique(new_case, case_type):
-    #     if case_type == 'wiki':
-    #         st.session_state.wiki_cases.append(new_case)
-    #     else:
-    #         st.session_state.api_cases.append(new_case)
-    #     return True
-    # else:
-    #     return False
 
 def fn(new_case):
         if 'description' in new_case:
