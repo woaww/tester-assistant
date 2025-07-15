@@ -3,6 +3,7 @@ from src.text_constants import LoggerMsg, PostProcStr
 from src.text_constants import KEY_CONTENT, KEY_EMPTY_KEY
 from src.utils import load_prompts
 from src.utils import generate_response
+from streamlit_modules.session_manager import get_wiki_cases, get_api_cases
 
 PROMPTS = load_prompts()
 
@@ -27,18 +28,19 @@ def generate_wiki_test_cases(description: str,
 
     prompt_template = PROMPTS.get("test_case_prompt", {}).get(KEY_CONTENT, KEY_EMPTY_KEY)
     formatted_prompt = format_prompt(prompt_template=prompt_template,
+                                    existing_cases=get_wiki_cases(),
                                     description=description)
-    print(formatted_prompt)
-    response = generate_response(prompt_input=formatted_prompt, 
+    # print(formatted_prompt)
+    response = generate_response(prompt_input=formatted_prompt,
                             model_params=model_params)
 
     LOGGER.info(LoggerMsg.INFO_END, generate_wiki_test_cases.__name__,'')
 
     return response
 
-def generate_api_test_cases(description: str, 
+def generate_api_test_cases(description: str,
                             url_ref: str,
-                            model_params, 
+                            model_params,
                             spec_method: str = None,
                             language: str = None) -> str:
    
@@ -49,6 +51,7 @@ def generate_api_test_cases(description: str,
         formatted_prompt = format_prompt(prompt_template=prompt_template,
                                         url_ref=url_ref,
                                         method=spec_method,
+                                        existing_cases=get_api_cases(),
                                         description=description)
     else:
         prompt_template = PROMPTS.get("api_languages_test_case_prompt", {}).get(KEY_CONTENT, KEY_EMPTY_KEY)

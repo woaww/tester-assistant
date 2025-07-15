@@ -1,5 +1,5 @@
 import streamlit as st
-from streamlit_modules.session_manager import (init_session, get_wiki_cases, 
+from streamlit_modules.session_manager import (init_session, get_wiki_cases,
                                                get_api_cases, add_case)
 from generate_modules.test_case_generator import (generate_wiki_test_cases, generate_api_test_cases)
 from src.specification_api import SpecificationParser
