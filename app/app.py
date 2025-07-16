@@ -1,11 +1,12 @@
 import streamlit as st
-from streamlit_modules.session_manager import (init_session, get_wiki_cases,
-                                               get_api_cases, add_case)
+from streamlit_modules.session_manager import (init_session, get_wiki_cases, get_api_cases,
+                                               add_case, get_api_cases_generated)
+from streamlit_modules.settings import (render_param_slider, is_wiki_url,
+                                               reset_params_to_default)
 from generate_modules.test_case_generator import (generate_wiki_test_cases, generate_api_test_cases)
-from src.specification_api import SpecificationParser
 from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS, Separatiors
 from src.models import ModelParamsConfig
-from streamlit_modules.widgets import render_param_slider, reset_params_to_default, is_wiki_url
+from streamlit_modules.widgets import button_get_test_case
 from src.utils import split_wiki_tests_by_separator, split_api_test_cases
 
 # --- Инициализация ---
@@ -32,8 +33,9 @@ with st.sidebar:
 
 # --- Основная панель ---
 
-st.title(AppSettings.PAGE_HOME)
-OPTIONS = st.selectbox(AppSettings.ST_SELECTBOX, AppSettings.OPTIONS_LIST)
+with st.container():
+    st.title(AppSettings.PAGE_HOME)
+    OPTIONS = st.selectbox(AppSettings.ST_SELECTBOX, AppSettings.OPTIONS_LIST)
 
 match OPTIONS:
     case AppSettings.TYPE_OPTION_WIKI:
@@ -79,70 +81,41 @@ match OPTIONS:
                     st.markdown(split_wiki_tests_by_separator(get_wiki_cases()))
 
     case AppSettings.TYPE_OPTION_CURL:
+
         st.subheader(AppSettings.TYPE_OPTION_CURL)
-        spec_url = st.text_input("Введите URL спецификации API", 
-                                 value = AppSettings.DSCR_BASE_URL_VALUE)
+        spec_url = st.text_input("Введите URL спецификации API",
+                                value = AppSettings.DSCR_BASE_URL_VALUE)
         spec_method = st.text_input("Введите метод")
+        
+        # with st.expander("Тест-кейсы", expanded=True):
+        if not spec_url:
+                st.warning("Введите URL спецификации API и метод")
+        else:
+            if st.button("Сгенерировать тестовые кейсы в формате curl",
+                    on_click=button_get_test_case,
+                    kwargs={"spec_url": spec_url,
+                            "spec_method": spec_method,
+                            "type": "api",
+                            "new_cases": False}):
+                
+                # Отображаем результат
+                st.markdown(split_api_test_cases(get_api_cases()))
 
-        if st.button("Сгенерировать тестовые кейсы в формате curl"):
-
-            st.session_state.api_cases = []
-
-            if not spec_url:
-                st.warning("Введите URL спецификации API")
-            else:
-                try:
-                    parser = SpecificationParser(spec_url)
-                    spec_description = parser.parse_specification(spec_method)
+            if get_api_cases_generated:
+                # Кнопка для генерации дополнительных тест-кейсов
+                if st.button("Сгенерировать дополнительные тестовые кейсы (API)",
+                    on_click=button_get_test_case,
+                    kwargs={"spec_url": spec_url,
+                            "spec_method": spec_method,
+                            "type": "api",
+                            "new_cases": True}):
                     
-                    with st.spinner(AppSettings.SPINNER):
-                        model_params = st.session_state.model_params
-                        response = generate_api_test_cases(
-                            description=spec_description,
-                            url_ref = spec_url,
-                            spec_method=spec_method,
-                            model_params=model_params
-                        )
-
-                        add_case(response, case_type='api')
-
-                        # Отображаем результат
-                        st.markdown(split_api_test_cases(get_api_cases()))
-
-                except Exception as e:
-                    st.error(f"Ошибка при обработке спецификации: {e}")
-
-        # Кнопка для генерации дополнительных тест-кейсов
-        if st.button("Сгенерировать дополнительные тестовые кейсы (API)"):
-            if not spec_url:
-                st.warning("Введите URL спецификации API")
-            else:
-                try:
-                    parser = SpecificationParser(spec_url)
-                    spec_description = parser.parse_specification(spec_method)
-
-                    with st.spinner("Генерация дополнительных тестовых кейсов..."):
-                        model_params = st.session_state.model_params
-
-                        response = generate_api_test_cases(
-                            description=spec_description,
-                            url_ref = spec_url,
-                            spec_method=spec_method,
-                            model_params=model_params
-                        )
-                        rep_w_separator = Separatiors.sep_cases+response
-
-                        add_case(rep_w_separator, case_type='api')
-
-                        # Отображаем результат
-                        st.markdown(split_api_test_cases(get_api_cases()))
-
-                except Exception as e:
-                    st.error(f"Ошибка при обработке спецификации: {e}")
+                    # Отображаем результат
+                    st.markdown(split_api_test_cases(get_api_cases()))            
 
         # --- перевод на другие языки ---
-        language = st.selectbox("Выберите язык для преобразования тест-кейсов", 
-                                ["Java + RestAssured", "Python + Requests"])
+        language = st.selectbox("Выберите язык для преобразования тест-кейсов",
+                                ["Java + RestAssured", "Python + Requests (pytest)"])
         if st.button("Преобразовать тестовые кейсы"):
             
             api_cases = get_api_cases()

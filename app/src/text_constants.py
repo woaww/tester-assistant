@@ -15,9 +15,6 @@ LOG_DATETIME_FORMAT = '%Y-%m-%d:%H:%M:%S'
 
 HEADER_SETTINGS = "Настройки"
 CURRENT_GENERATION_PARAMETERS = "Текущие параметры генерации:"
-CHOOSE_PROMPT = "Задайте промпт:"
-YOUR_CHOOSE = "Вы выбрали:"
-
 
 #Ролевые константы
 
@@ -48,7 +45,6 @@ COLUMN_FEEDBACK_TEXT = "feedback_text"
 
 # Паттерн для обработки строки
 
-URL_WIKI = 'https://wiki.domrf.ru'
 PATTERN_URL_IN_HTTP = 'http'
 # PATTERN_URL = r'^(http|https)://'
 PATTER_PAGE_ID = r'pageId=(\d+)'
@@ -67,23 +63,7 @@ DISLIKE = "👎"
 DCRPTN_DISLIKE = "Не очень"
 DEFAULT_RATING_EMOJI = {"like": LIKE, "dislike": DISLIKE}
 
-
-HEADERS = {
-    "Content-Type": "application/json", 
-    'accept': 'application/json', }
-
-TYPE_ENCODING = 'utf-8'
 SPLIT_SIGN = ","
-
-# LOGGER messagess
-
-LOGGER_ERROR = "An error %s in %s" #!!!
-
-LOGGER_WARNING_EMPTY_CASE = "Попытка добавить пустой тест-кейс."
-# LOGGER_INFO_WRITE_FEEDBACK = "Writing feedback"
-LOGGER_INFO_START = "Starting %s" #!!!
-LOGGER_INFO_END = "Completed %s" #!!!
-
 
 # KEYS from dictionaries
 
@@ -120,23 +100,13 @@ KEY_TYPE = "type"
 NOT_HEADERS_TIM = "ТИМ"
 NOT_HEADERS_US = "US"
 
-ST_WARNING_TOKEN = "Пожалуйста, введите хотя бы один токен."
-ST_WARNING_TOKEN_WIKI = "Пожалуйста, введите Wiki-токен."
-ST_WARNING_TOKEN_JIRA = "Пожалуйста, введите Jira-токен."
-
 # можно добаавить проверку на адрес для яндекса
-EXPANDER = "ℹ️ Подробнее"
 
 FEEDBACK_STATS = "### 📊 Статистика оценок"
 ALL_EVALUATION = "**Всего оценок:**"
 NEGATIVE_EVALUATION = "**Отрицательных:**"
 POSITIVE_EVALUATION = "**Положительных:**"
 INFO_EVALUATION = "Нет данных для отображения."
-
-SESSION_STATE_JIRA_TOKEN = "jira_token"
-SESSION_STATE_WIKI_TOKEN = "wiki_token"
-SESSION_STATE_TEST_CASES = "test_cases"
-SESSION_STATE_EXISTING_CASES = "existing_cases"
 
 
 ST_SELECTBOX = "Выберите действие"
@@ -153,23 +123,6 @@ SELECTOR_STR_ALT_USLOVIE = f'th:-soup-contains("{PART_PAGE_ALT_USLOVIE}") + td'
 SELECTOR_STR_SCENARIO = f'th:-soup-contains("{PART_PAGE_SCENARIO}") + td'
 SELECTOR_STR_POSTUSLOVIE = f'th:-soup-contains("{PART_PAGE_POSTUSLOVIE}") + td'
 
-
-ST_WARNING_PLEASE_ENTER = "Пожалуйста, введите метод и endpoint."
-ST_WARNING_PLEASE_ENTER_DSCR = "Пожалуйста, введите описание задачи."
-ST_INFO_WORK = "Перед работой обязательно введите токен, если будете отправлять ссылку на Вики."
-ST_INFO_ENTER_TEXT_LINK = "Введите ссылку/тект задачи."
-
-BUTTON_GET_CASES = "Сгенерировать кейсы"
-BUTTON_GET_MORE_CASES = "Сгенерировать ещё кейсы"
-
-# BUTTON_GET_CASES_PYTHON = f"{BUTTON_GET_CASES} {LANGUAGE_PYTHON} тесты"
-# BUTTON_GET_MORE_CASES_PYTHON = f"{BUTTON_GET_MORE_CASES} {LANGUAGE_PYTHON} тесты"
-
-# BUTTON_GET_CASES_JAVA = f"{BUTTON_GET_CASES} {LANGUAGE_JAVA} тесты"
-# BUTTON_GET_MORE_CASES_JAVA = f"{BUTTON_GET_MORE_CASES} {LANGUAGE_JAVA} тесты"
-
-# BUTTON_GET_CASES_CURL = f"{BUTTON_GET_CASES} {LANGUAGE_CURL} тесты"
-# BUTTON_GET_MORE_CASES_CURL = f"{BUTTON_GET_MORE_CASES} {LANGUAGE_CURL} тесты"
 
 
 class Separatiors:
@@ -197,8 +150,8 @@ class PostProcStr:
     resp_text_11: str = " with appropriate headers and request bodies included as necessary."
     resp_text_12: str = " Assertions can be added within the methods to validate the expected responses from the server."
     LIST_DEL_STR: list = [general_text_2, general_text_1, general_text_0, undefined,
-                          prompt_text_1, prompt_text_0, prompt_text_3, resp_text_0, 
-                          resp_text_1, resp_text_2, resp_text_3,resp_text_4, 
+                          prompt_text_1, prompt_text_0, prompt_text_3, resp_text_0,
+                          resp_text_1, resp_text_2, resp_text_3,resp_text_4,
                           resp_text_5, resp_text_6, resp_text_7, resp_text_8,
                           resp_text_9, resp_text_10, resp_text_11, resp_text_12]
 

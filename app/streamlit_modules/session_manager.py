@@ -20,6 +20,12 @@ def get_wiki_cases():
 def get_api_cases():
     return st.session_state.api_cases
 
+def get_wiki_cases_generated():
+    return st.session_state.wiki_cases_generated
+
+def get_api_cases_generated():
+    return st.session_state.api_cases_generated
+
 def add_case(new_case, case_type='wiki'):
     if case_type == 'wiki':
         st.session_state.wiki_cases.append(new_case)
@@ -27,10 +33,10 @@ def add_case(new_case, case_type='wiki'):
         st.session_state.api_cases.append(new_case)
 
 def fn(new_case):
-        if 'description' in new_case:
-            return new_case['description']
-        else:
-            return new_case
+    if 'description' in new_case:
+        return new_case['description']
+    else:
+        return new_case
 
 def is_unique(new_case, case_type='wiki'):
 

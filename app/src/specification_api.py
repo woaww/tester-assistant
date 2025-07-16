@@ -41,29 +41,6 @@ class SpecificationParser:
             spec['info']['title'] = 'Без названия'
 
         return spec
-
-    def _load_specification(self) -> ResolvingParser:
-        """
-        Загружает и валидирует спецификацию API с помощью prance.
-        
-        :return: Объект ResolvingParser с разрешенными ссылками.
-        """
-        try:
-            if self.spec_url_or_path.startswith("http"):
-                # Загрузка из URL
-                parser = ResolvingParser(self.spec_url_or_path, backend='openapi-spec-validator')
-            else:
-                # Загрузка из файла
-                parser = ResolvingParser(self.spec_url_or_path, backend='openapi-spec-validator')
-            
-            # Проверяем, что спецификация валидна
-            if not parser.specification:
-                raise ValueError("Спецификация не загружена или пуста.")
-            
-            return parser
-        except Exception as e:
-            raise ValueError(f"Ошибка при загрузке или валидации спецификации: {e}")
-
     
     def _load_specification(self) -> ResolvingParser:
         """
@@ -102,12 +79,3 @@ class SpecificationParser:
         
         # paths_text = "\n".join(paths_description)
         return f"Титул: {title}\nОписание: {description}\n\nРучка:\n{paths_description}"
-
-    def get_wiki_explanation(self) -> str:
-        """
-        Получает дополнительное пояснение из Википедии.
-        
-        :return: Пояснение из Википедии.
-        """
-        # Здесь можно добавить логику для получения данных из Википедии
-        return "Дополнительное пояснение из Википедии."
