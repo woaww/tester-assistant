@@ -1,6 +1,6 @@
 version: '3.7'
 services:
-  tester-assistant:
+  tester-assistant-dev:
     image: ${DEPLOY_IMAGE_NAME:?err}
     networks:
       - nginx-reverse-proxy
