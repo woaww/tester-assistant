@@ -3,40 +3,45 @@ from src.text_constants import LoggerMsg, PostProcStr
 from src.text_constants import KEY_CONTENT, KEY_EMPTY_KEY
 from src.utils import load_prompts
 from src.utils import generate_response
-from streamlit_modules.session_manager import get_wiki_cases, get_api_cases
+from streamlit_modules.session_manager import get_wiki_cases, get_api_cases, get_jira_cases
 
 PROMPTS = load_prompts()
 
+
 def format_prompt(prompt_template, **kwargs):
     """Формирует промпт на основе шаблона и переданных аргументов."""
-    LOGGER.info(LoggerMsg.INFO_END, format_prompt.__name__,'')
+    LOGGER.info(LoggerMsg.INFO_END, format_prompt.__name__, '')
     return prompt_template.format(**kwargs)
 
+
 def post_process_response(response: str) -> str:
-    LOGGER.info(LoggerMsg.INFO_START, post_process_response.__name__,'')
+    LOGGER.info(LoggerMsg.INFO_START, post_process_response.__name__, '')
 
     for el in PostProcStr.LIST_DEL_STR:
         response = response.replace(el, '')
 
-    LOGGER.info(LoggerMsg.INFO_END, post_process_response.__name__,'')
+    LOGGER.info(LoggerMsg.INFO_END, post_process_response.__name__, '')
     return response
+
 
 def generate_wiki_test_cases(description: str,
                              model_params) -> str:
 
-    LOGGER.info(LoggerMsg.INFO_START, generate_wiki_test_cases.__name__,'')
+    LOGGER.info(LoggerMsg.INFO_START, generate_wiki_test_cases.__name__, '')
 
-    prompt_template = PROMPTS.get("test_case_prompt", {}).get(KEY_CONTENT, KEY_EMPTY_KEY)
+    prompt_template = PROMPTS.get("test_case_prompt", {}).get(
+        KEY_CONTENT, KEY_EMPTY_KEY)
     formatted_prompt = format_prompt(prompt_template=prompt_template,
-                                    existing_cases=get_wiki_cases(),
-                                    description=description)
+                                     existing_cases=get_wiki_cases(),
+                                     description=description)
     # print(formatted_prompt)
     response = generate_response(prompt_input=formatted_prompt,
-                            model_params=model_params)
+                                 model_params=model_params)
 
-    LOGGER.info(LoggerMsg.INFO_END, generate_wiki_test_cases.__name__,'')
+    LOGGER.info(LoggerMsg.INFO_END, generate_wiki_test_cases.__name__, '')
 
     return response
+
 
 def generate_api_test_cases(description: str,
                             url_ref: str,
@@ -44,24 +49,44 @@ def generate_api_test_cases(description: str,
                             spec_method: str = None,
                             language: str = None) -> str:
 
-    LOGGER.info(LoggerMsg.INFO_START, generate_api_test_cases.__name__,'')
+    LOGGER.info(LoggerMsg.INFO_START, generate_api_test_cases.__name__, '')
 
     if language is None or language.lower() == "curl":
-        prompt_template = PROMPTS.get("api_curl_test_case_prompt", {}).get(KEY_CONTENT, KEY_EMPTY_KEY)
+        prompt_template = PROMPTS.get("api_curl_test_case_prompt", {}).get(
+            KEY_CONTENT, KEY_EMPTY_KEY)
         formatted_prompt = format_prompt(prompt_template=prompt_template,
-                                        url_ref=url_ref,
-                                        method=spec_method,
-                                        existing_cases=get_api_cases(),
-                                        description=description)
+                                         url_ref=url_ref,
+                                         method=spec_method,
+                                         existing_cases=get_api_cases(),
+                                         description=description)
     else:
-        prompt_template = PROMPTS.get("api_languages_test_case_prompt", {}).get(KEY_CONTENT, KEY_EMPTY_KEY)
+        prompt_template = PROMPTS.get("api_languages_test_case_prompt", {
+        }).get(KEY_CONTENT, KEY_EMPTY_KEY)
         formatted_prompt = format_prompt(prompt_template=prompt_template,
-                                        description=description,
-                                        language=language)
-    
-    response = generate_response(prompt_input=formatted_prompt,
-                            model_params=model_params)
+                                         description=description,
+                                         language=language)
 
-    LOGGER.info(LoggerMsg.INFO_END, generate_api_test_cases.__name__,'')
+    response = generate_response(prompt_input=formatted_prompt,
+                                 model_params=model_params)
+
+    LOGGER.info(LoggerMsg.INFO_END, generate_api_test_cases.__name__, '')
+
+    return response
+
+
+def generate_jira_test_cases(description: str,
+                             model_params) -> str:
+    LOGGER.info(LoggerMsg.INFO_START, generate_jira_test_cases.__name__, '')
+
+    prompt_template = PROMPTS.get("test_case_prompt", {}).get(
+        KEY_CONTENT, KEY_EMPTY_KEY)
+    formatted_prompt = format_prompt(prompt_template=prompt_template,
+                                     existing_cases=get_jira_cases(),
+                                     description=description)
+
+    response = generate_response(prompt_input=formatted_prompt,
+                                 model_params=model_params)
+
+    LOGGER.info(LoggerMsg.INFO_END, generate_jira_test_cases.__name__, '')
 
     return response

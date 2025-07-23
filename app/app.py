@@ -1,13 +1,15 @@
 import streamlit as st
 from streamlit_modules.session_manager import (init_session, get_wiki_cases, get_api_cases,
+                                               get_jira_cases, get_jira_cases_generated,
                                                add_case, get_api_cases_generated)
-from streamlit_modules.settings import (render_param_slider, is_wiki_url,
-                                               reset_params_to_default)
-from generate_modules.test_case_generator import (generate_wiki_test_cases, generate_api_test_cases)
+from streamlit_modules.settings import (render_param_slider, is_wiki_url, is_http_url,
+                                        is_jira_url, reset_params_to_default)
+from generate_modules.test_case_generator import (generate_wiki_test_cases, generate_api_test_cases,
+                                                  generate_jira_test_cases)
 from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS, Separatiors
 from src.models import ModelParamsConfig
 from streamlit_modules.widgets import button_get_test_case
-from src.utils import split_wiki_tests_by_separator, split_api_test_cases
+from src.utils import split_wiki_jira_tests_by_separator, split_api_test_cases
 
 # --- Инициализация ---
 init_session()
@@ -40,7 +42,7 @@ with st.container():
 match OPTIONS:
     case AppSettings.TYPE_OPTION_WIKI:
         st.subheader(AppSettings.TYPE_OPTION_WIKI)
-        url_or_text = st.text_area("Введите описание задачи или URL страницы Вики")
+        url_or_text = st.text_area("Введите URL страницы Вики")
 
         description_text = is_wiki_url(url_or_text)
 
@@ -61,7 +63,7 @@ match OPTIONS:
                     add_case(response, case_type='wiki')
                             
                     # Отображаем результат
-                    st.markdown(split_wiki_tests_by_separator(get_wiki_cases()))
+                    st.markdown(split_wiki_jira_tests_by_separator(get_wiki_cases()))
                     
         # Кнопка для генерации дополнительных тест-кейсов
         if st.button("Сгенерировать дополнительные тестовые кейсы (Вики)"):
@@ -78,7 +80,7 @@ match OPTIONS:
 
                     add_case(rep_w_separator, case_type='wiki')
                 
-                    st.markdown(split_wiki_tests_by_separator(get_wiki_cases()))
+                    st.markdown(split_wiki_jira_tests_by_separator(get_wiki_cases()))
 
     case AppSettings.TYPE_OPTION_CURL:
 
@@ -111,7 +113,7 @@ match OPTIONS:
                             "new_cases": True}):
                     
                     # Отображаем результат
-                    st.markdown(split_api_test_cases(get_api_cases()))            
+                    st.markdown(split_api_test_cases(get_api_cases()))
 
         # --- перевод на другие языки ---
         language = st.selectbox("Выберите язык для преобразования тест-кейсов",
@@ -135,3 +137,50 @@ match OPTIONS:
                     )
 
                     st.markdown(response)
+
+    case AppSettings.TYPE_OPTION_JIRA:
+        st.subheader(AppSettings.TYPE_OPTION_JIRA)
+        jira_url = st.text_area("Введите URL страницы Jira")
+
+        description_text = is_jira_url(jira_url)
+
+        if st.button(AppSettings.BUTTON_GET_CASES):
+
+            st.session_state.jira_cases = []
+            
+            if not description_text or not is_http_url(jira_url):
+                st.warning("Введите корректный URL страницы Jira")
+            else:
+                with st.spinner(AppSettings.SPINNER):
+                    model_params = st.session_state.model_params
+
+                    response = generate_jira_test_cases(
+                        description=description_text,
+                        model_params=model_params
+                    )
+
+                    rep_w_separator = Separatiors.sep_cases+response
+
+                    add_case(rep_w_separator, case_type='jira')
+                    
+                    st.session_state.jira_cases_generated = True
+                    st.markdown(split_wiki_jira_tests_by_separator(get_jira_cases()))
+
+        # Генерация дополнительных тест-кейсов
+        if get_jira_cases_generated:
+            if st.button("Сгенерировать дополнительные тестовые кейсы"):
+                if not description_text or not is_http_url(jira_url):
+                    st.warning("Введите корректный URL страницы Jira")
+                else:
+                    with st.spinner("Генерация дополнительных тестовых кейсов..."):
+                        model_params = st.session_state.model_params
+                        
+                        response = generate_jira_test_cases(
+                            description=description_text,
+                            model_params=model_params
+                        )
+                        
+                        rep_w_separator = Separatiors.sep_cases+response)
+
+                        add_case(rep_w_separator, case_type='jira')
+                        st.markdown(split_wiki_jira_tests_by_separator(get_jira_cases()))

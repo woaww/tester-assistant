@@ -5,6 +5,7 @@ load_dotenv()
 
 LLM_URL = os.getenv("LLM_URL")
 WIKI_TOKEN = os.getenv("WIKI_TOKEN")
+JIRA_TOKEN = os.getenv("JIRA_TOKEN")
 # Logger constatns
 
 LOG_FORMAT = ('%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] '
@@ -155,7 +156,7 @@ class PostProcStr:
                           resp_text_5, resp_text_6, resp_text_7, resp_text_8,
                           resp_text_9, resp_text_10, resp_text_11, resp_text_12]
 
-class Keys:    
+class Keys:
     GENERATED_TEXT: str = "generated_text"
     SPACE: str = " "
     EMPTY: str = ""
@@ -166,6 +167,7 @@ class UtilitsParsing:
     # WIKI_TOKEN: str = "wiki_token"
     #Используется для создаиния конфлю-эклиента
     URL_WIKI: str = "https://wiki.domrf.ru"
+    URL_JIRA: str = "https://jira.domrf.ru"
     #Используется для извлечения ID страницы из URL
     PATTERN_URL_ID: str = r'pageId=(\d+)'
     NOT_HEADERS_TIM = "ТИМ"
@@ -202,9 +204,8 @@ class AppSettings:
     DSCR_BASE_URL_VALUE = "https://api.example.com"
     TYPE_OPTION_WIKI = "Генерация тестового кейса из сценария задачи (Вики)"
     TYPE_OPTION_CURL = "Генерация тестовых кейсов API (CURL)"
-    OPTIONS_LIST = [TYPE_OPTION_WIKI, TYPE_OPTION_CURL]
-    
-
+    TYPE_OPTION_JIRA = "Генерация тестового кейса из сценария задачи (Jira)"
+    OPTIONS_LIST = [TYPE_OPTION_WIKI, TYPE_OPTION_CURL, TYPE_OPTION_JIRA]
 
 class GeneralUtilitsConsts:
     #Тип кодировки - prompts
@@ -253,8 +254,11 @@ class LoggerMsg:
     WARNING_INVALID_RATING: str = "Invalid rating extracted for: %s"
     #сообщение о добавлении разделителя
     INFO_SEPARATOR_ADDED: str = "Добавлен разделитель для блока: %s"
-    ERROR_GET_DATA_PAGE = "Ошибка получения данных страницы: "
-    ERROR_EXTRACT_LINK_WIKI = "Пожалуйста, введите корректную ссылку (должна начинаться с http:// или https://)."
+    ERROR_GET_DATA_PAGE: str = "Ошибка получения данных страницы: "
+    ERROR_EXTRACT_LINK_WIKI: str = "Пожалуйста, введите корректную ссылку (должна начинаться с http:// или https://)."
+    ERROR_JIRA_GET_SUMMARY: str = "Ошибка получения заголовка тикета: "
+    ERROR_JIRA_GET_DESCRIPTION: str = "Ошибка получения описания тикета: "
+
 
 class GeneralValuesLLM:
     GEN_RESPONSE_TEMP: float = 0.4

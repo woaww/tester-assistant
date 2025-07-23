@@ -15,7 +15,7 @@ def load_prompts(file_path="prompts.yaml"):
     with open(file_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
-def split_wiki_tests_by_separator(text):
+def split_wiki_jira_tests_by_separator(text):
     full_text = "\n".join(text)
     # Разбиваем текст по "---\n\n"
     blocks = full_text.strip().split("---\n\n")
@@ -51,9 +51,9 @@ def split_api_test_cases(data):
 @retry(tries=GeneralUtilitsConsts.RETRY_TRIES)
 def generate_response(prompt_input: Optional[str],
                     model_params: Optional[Dict[str, Union[float, int]]] = None,
-                    temp: float = GeneralValuesLLM.GEN_RESPONSE_TEMP, 
-                    max_tokens: int = GeneralValuesLLM.GEN_RESPONSE_MAX_TOKENS, 
-                    repetition_penalty: float = GeneralValuesLLM.GEN_RESPONSE_REPETITION_PENALTY, 
+                    temp: float = GeneralValuesLLM.GEN_RESPONSE_TEMP,
+                    max_tokens: int = GeneralValuesLLM.GEN_RESPONSE_MAX_TOKENS,
+                    repetition_penalty: float = GeneralValuesLLM.GEN_RESPONSE_REPETITION_PENALTY,
                     frequency_penalty: float = GeneralValuesLLM.GEN_RESPONSE_FREQUENCY_PENALTY) -> Optional[str]:
     # answer = None
     try:
@@ -88,4 +88,3 @@ def generate_response(prompt_input: Optional[str],
     except Exception as error:
         LOGGER.error(LoggerMsg.ERROR, str(error), generate_response.__name__, exc_info=True)
         raise
-

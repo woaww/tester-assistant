@@ -14,17 +14,30 @@ def init_session():
     if "api_cases_generated" not in st.session_state:
         st.session_state.api_cases_generated = False
 
+    if 'jira_cases' not in st.session_state:
+        st.session_state.jira_cases = []
+
+    if 'jira_cases_generated' not in st.session_state:
+        st.session_state.jira_cases_generated = False
+
 def get_wiki_cases():
     return st.session_state.wiki_cases
 
 def get_api_cases():
     return st.session_state.api_cases
 
+def get_jira_cases():
+    return st.session_state.jira_cases
+
 def get_wiki_cases_generated():
     return st.session_state.wiki_cases_generated
 
 def get_api_cases_generated():
     return st.session_state.api_cases_generated
+
+def get_jira_cases_generated():
+    return st.session_state.jira_cases_generated
+
 
 def add_case(new_case, case_type='wiki'):
     if case_type == 'wiki':

@@ -1,12 +1,14 @@
 version: '3.7'
 services:
-  tester-assistant-dev:
+  tester-assistant:
     image: ${DEPLOY_IMAGE_NAME:?err}
     networks:
       - nginx-reverse-proxy
     environment:
       LLM_URL: http://d-gpgpu-a100-01.ct.ahml1.ru:8335/generate
       WIKI_TOKEN: ${WIKI_TOKEN}
+      JIRA_TOKEN: ${JIJA_TOKEN}
+      TESTIT_TOKEN: ${TESTIT_TOKEN}
     volumes:
       - ai-volume:/app/data
     ports:
