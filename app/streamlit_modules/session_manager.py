@@ -38,12 +38,13 @@ def get_api_cases_generated():
 def get_jira_cases_generated():
     return st.session_state.jira_cases_generated
 
-
 def add_case(new_case, case_type='wiki'):
     if case_type == 'wiki':
         st.session_state.wiki_cases.append(new_case)
-    else:
+    elif case_type == 'api':
         st.session_state.api_cases.append(new_case)
+    elif case_type == 'jira':
+        st.session_state.jira_cases.append(new_case)
 
 def fn(new_case):
     if 'description' in new_case:

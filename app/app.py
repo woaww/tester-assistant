@@ -8,6 +8,7 @@ from generate_modules.test_case_generator import (generate_wiki_test_cases, gene
                                                   generate_jira_test_cases)
 from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS, Separatiors
 from src.models import ModelParamsConfig
+# from src.logger import LOGGER
 from streamlit_modules.widgets import button_get_test_case
 from src.utils import split_wiki_jira_tests_by_separator, split_api_test_cases
 
@@ -158,6 +159,7 @@ match OPTIONS:
                         description=description_text,
                         model_params=model_params
                     )
+                    # LOGGER.info(response)
 
                     rep_w_separator = Separatiors.sep_cases+response
 
