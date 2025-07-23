@@ -147,7 +147,7 @@ match OPTIONS:
         if st.button(AppSettings.BUTTON_GET_CASES):
 
             st.session_state.jira_cases = []
-            
+
             if not description_text or not is_http_url(jira_url):
                 st.warning("Введите корректный URL страницы Jira")
             else:
@@ -180,7 +180,7 @@ match OPTIONS:
                             model_params=model_params
                         )
                         
-                        rep_w_separator = Separatiors.sep_cases+response)
+                        rep_w_separator = Separatiors.sep_cases+response
 
                         add_case(rep_w_separator, case_type='jira')
                         st.markdown(split_wiki_jira_tests_by_separator(get_jira_cases()))
