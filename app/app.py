@@ -110,8 +110,8 @@ match OPTIONS:
                 # Кнопка для генерации дополнительных тест-кейсов
                 if st.button("Сгенерировать дополнительные тестовые кейсы (API)",
                     on_click=button_get_test_case,
-                    kwargs={"spec_url": spec_url,
-                            "spec_method": spec_method,
+                    kwargs={"spec_url": res_url_method["url"],
+                            "spec_method": res_url_method["method"],
                             "type": "api",
                             "new_cases": True}):
                     

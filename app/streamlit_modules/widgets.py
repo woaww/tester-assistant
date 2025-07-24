@@ -1,6 +1,6 @@
 import streamlit as st
-from app.src.logger import LOGGER
-from src.text_constants import LoggerMsg, Separatiors
+# from app.src.logger import LOGGER
+from src.text_constants import Separatiors #LoggerMsg, 
 from generate_modules.test_case_generator import generate_api_test_cases
 from src.specification_api import SpecificationParser
 from streamlit_modules.session_manager import add_case
@@ -41,5 +41,5 @@ def button_get_test_case(spec_url: str,
 
                 except Exception as e:
                     st.error(f"Ошибка при обработке спецификации API")
-                    LOGGER.error(LoggerMsg.ERROR_GENERATE_API_TEST_CASES,
-                                 SpecificationParser.__name__, e)
+                    # LOGGER.error(LoggerMsg.ERROR_GENERATE_API_TEST_CASES,
+                    #              SpecificationParser.__name__, e)
