@@ -3,7 +3,7 @@ from streamlit_modules.session_manager import (init_session, get_wiki_cases, get
                                                get_jira_cases, get_jira_cases_generated,
                                                add_case, get_api_cases_generated)
 from streamlit_modules.settings import (render_param_slider, is_wiki_url, is_http_url,
-                                        is_jira_url, reset_params_to_default)
+                                        is_jira_url, reset_params_to_default, is_api_url_method)
 from generate_modules.test_case_generator import (generate_wiki_test_cases, generate_api_test_cases,
                                                   generate_jira_test_cases)
 from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS, Separatiors
@@ -89,6 +89,8 @@ match OPTIONS:
         spec_url = st.text_input("Введите URL спецификации API",
                                 value = AppSettings.DSCR_BASE_URL_VALUE)
         spec_method = st.text_input("Введите метод")
+
+        res_url_method = is_api_url_method(spec_url, spec_method)
         
         # with st.expander("Тест-кейсы", expanded=True):
         if not spec_url:
@@ -96,8 +98,8 @@ match OPTIONS:
         else:
             if st.button("Сгенерировать тестовые кейсы в формате curl",
                     on_click=button_get_test_case,
-                    kwargs={"spec_url": spec_url,
-                            "spec_method": spec_method,
+                    kwargs={"spec_url": res_url_method["url"],
+                            "spec_method": res_url_method["method"],
                             "type": "api",
                             "new_cases": False}):
                 

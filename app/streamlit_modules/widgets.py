@@ -5,7 +5,6 @@ from generate_modules.test_case_generator import generate_api_test_cases
 from src.specification_api import SpecificationParser
 from streamlit_modules.session_manager import add_case
 from src.text_constants import AppSettings
-from streamlit_modules.settings import is_api_url_method
 
 def button_get_test_case(spec_url: str,
                          spec_method: str,
@@ -22,15 +21,14 @@ def button_get_test_case(spec_url: str,
                 return
             else:
                 try:
-                    res_url_method = is_api_url_method(spec_url, spec_method)
-                    parser = SpecificationParser(res_url_method["url"])
-                    spec_description = parser.parse_specification(res_url_method["method"])
+                    parser = SpecificationParser(spec_url)
+                    spec_description = parser.parse_specification(spec_method)
                     
                     with st.spinner(AppSettings.SPINNER):
                         response = generate_api_test_cases(
                             description=spec_description,
-                            url_ref = res_url_method["url"],
-                            spec_method=res_url_method["method"],
+                            url_ref = spec_url,
+                            spec_method=spec_method,
                             model_params=st.session_state.model_params
                         )
                         if new_cases:
