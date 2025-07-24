@@ -66,11 +66,11 @@ def is_wiki_url(text_old: str) -> bool:
             st.error("Ошибка при загрузке сценария Wiki")
             LOGGER.error(LoggerMsg.ERROR_WIKI_GET_SCENARIO,
                          WikiClient.__name__, e)
-            description = text
+            description = text_old
             return description
     else:
         LOGGER.info(LoggerMsg.INFO_END, is_wiki_url.__name__, '')
-        description = text
+        description = text_old
         return description
 
 
