@@ -26,12 +26,15 @@ def render_param_slider(param_data: AppSettingsParamConfig,
     st.session_state[session_state_key] = value
     return value
 
+
 def reset_params_to_default(params_config: ModelParamsConfig) -> Dict[str, Union[float, int]]:
     default_values = {k: v.default for k, v in params_config.__dict__.items()}
     return default_values
 
+
 def is_http_url(text: str) -> bool:
     return re.search(r"https?://", text) is not None
+
 
 def extract_url(input_string, http_flag=True):
     cleaned_string = re.sub(r'[а-яА-Я]', '', input_string)
@@ -46,6 +49,7 @@ def extract_url(input_string, http_flag=True):
         return url.group(0) if url else None
     else:
         return cleaned_string
+
 
 def is_wiki_url(text_old: str) -> bool:
     LOGGER.info(LoggerMsg.INFO_START, is_wiki_url.__name__, '')
@@ -87,3 +91,12 @@ def is_jira_url(text_old: str) -> str:
             st.error(f"Ошибка при загрузке сценария Jira")
             LOGGER.error(LoggerMsg.ERROR_JIRA_GET_DESCRIPTION,
                          JiraClient.__name__, e)
+
+
+def is_api_url_method(spec_url: str,
+                      spec_method: str) -> str:
+
+    clean_spec_url = extract_url(spec_url)
+    clean_spec_method = extract_url(spec_method, http_flag=False)
+
+    return {"url": clean_spec_url, "method": clean_spec_method}
