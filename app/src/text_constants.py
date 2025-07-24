@@ -12,18 +12,6 @@ LOG_FORMAT = ('%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d]
               '%(message)s - Function: %(funcName)s')
 LOG_DATETIME_FORMAT = '%Y-%m-%d:%H:%M:%S'
 
-# Константны для display settings
-
-HEADER_SETTINGS = "Настройки"
-CURRENT_GENERATION_PARAMETERS = "Текущие параметры генерации:"
-
-#Ролевые константы
-
-ROLE_ASSISTANT = "assistant"
-ROLE_USER = "user"
-CONTENT = "content"
-# MESSAGE = "messages"
-
 # Константы для записи в файл для сборки статистики
 # COLUMN_EMAIL = "email"
 # COLUMN_PROMPT = "prompt"
@@ -45,14 +33,6 @@ COLUMN_FEEDBACK_TEXT = "feedback_text"
 
 
 # Паттерн для обработки строки
-
-PATTERN_URL_IN_HTTP = 'http'
-# PATTERN_URL = r'^(http|https)://'
-PATTER_PAGE_ID = r'pageId=(\d+)'
-# PATTER_EVAL = r"### Оценка:\s*(\d+)"
-# PATTERN_CLEAN = r'[^a-zA-Z\s-]'
-# PATTERN_CLEAN_SPACE = r'\s+'
-KEY_FOR_SPACE = " "
 KEY_EMPTY_KEY = ''
 
 # Константы эмодзи
@@ -64,18 +44,8 @@ DISLIKE = "👎"
 DCRPTN_DISLIKE = "Не очень"
 DEFAULT_RATING_EMOJI = {"like": LIKE, "dislike": DISLIKE}
 
-SPLIT_SIGN = ","
-
 # KEYS from dictionaries
-
-KEY_RESULT = "result"
-KEY_TEXT = "text"
-KEY_PROMPT = "prompt"
-KEY_TEMPLATE = "template"
-KEY_TEMPLATE_TEXT = "template_text"
-KEY_INPUT_VARIABLES = "input_variables"
 KEY_CONTENT = "content"
-KEY_TITLE = "title" #!!!
 
 KEY_STATUS_FOR_USECASE = 'status_for_usecase'
 KEY_GENERATED_TEXT = 'generated_text'
@@ -85,30 +55,6 @@ KEY_ROLE = "role"
 KEY_ROLES = "roles"
 KEY_DISLIKE = "dislike"
 KEY_LIKE = "like"
-
-KEY_COUNT = "count"
-KEY_EXISTING_CASES = "existing_cases"
-KEY_METHOD = "method"
-KEY_DESCRIPTION = "description"
-KEY_ENDPOINT = "endpoint"
-KEY_BASE_URL = "base_url"
-KEY_GENERATE_MORE = "generate_more"
-KEY_TYPE = "type"
-
-
-# constatns for formatted data
-
-NOT_HEADERS_TIM = "ТИМ"
-NOT_HEADERS_US = "US"
-
-# можно добаавить проверку на адрес для яндекса
-
-FEEDBACK_STATS = "### 📊 Статистика оценок"
-ALL_EVALUATION = "**Всего оценок:**"
-NEGATIVE_EVALUATION = "**Отрицательных:**"
-POSITIVE_EVALUATION = "**Положительных:**"
-INFO_EVALUATION = "Нет данных для отображения."
-
 
 ST_SELECTBOX = "Выберите действие"
 
@@ -123,8 +69,6 @@ SELECTOR_STR_MAIN_USLOVIE = f'th:-soup-contains("{PART_PAGE_MAIN_USLOVIE}") + td
 SELECTOR_STR_ALT_USLOVIE = f'th:-soup-contains("{PART_PAGE_ALT_USLOVIE}") + td'
 SELECTOR_STR_SCENARIO = f'th:-soup-contains("{PART_PAGE_SCENARIO}") + td'
 SELECTOR_STR_POSTUSLOVIE = f'th:-soup-contains("{PART_PAGE_POSTUSLOVIE}") + td'
-
-
 
 class Separatiors:
     sep_cases: str = '---\n\n'+'---\n\n'+'---\n\n'
@@ -160,6 +104,7 @@ class Keys:
     GENERATED_TEXT: str = "generated_text"
     SPACE: str = " "
     EMPTY: str = ""
+    SPLIT_SIGN = ","
     TITLE = "title"
 
 class UtilitsParsing:
@@ -180,15 +125,13 @@ class UtilitsParsing:
     PATTERN_CLEAN: str = r'[^a-zA-Z\s-]'
     PATTERN_CLEAN_SPACE: str = r'\s+'
     PATTERN_URL: str = r'^(http|https)://'
-    NOT_HEADERS_TIM = "ТИМ"
-    NOT_HEADERS_US = "US"
 
 
 class DefaultValuesLLM:
-    DEF_TEMPERATURE: float = 0.4
-    DEF_MAX_NEW_TOKENS: int = 1500
-    DEF_REPETITION_PENALTY: float = 1.1
-    DEF_FREQUENCY_PENALTY: float = 0.5
+    DEF_TEMPERATURE: float = 0.3
+    DEF_MAX_NEW_TOKENS: int = 2500
+    DEF_REPETITION_PENALTY: float = 1.2
+    DEF_FREQUENCY_PENALTY: float = 0.9
 
 class AppSettings:
     EXPANDER: str = "ℹ️ Подробнее"
@@ -211,8 +154,8 @@ class GeneralUtilitsConsts:
     #Тип кодировки - prompts
     TYPE_ENCODING: str = "utf-8"
     #Заголовки запроса к LLM
-    HEADERS: dict = {"Content-Type": "application/json", 
-                            'accept': 'application/json',}
+    HEADERS: dict = {"Content-Type": "application/json",
+                        'accept': 'application/json',}
     RETRY_TRIES: int = 8
     MODEL_LOCAL_NAME: str = "local-model"
 
@@ -261,14 +204,13 @@ class LoggerMsg:
 
 
 class GeneralValuesLLM:
-    GEN_RESPONSE_TEMP: float = 0.4
+    GEN_RESPONSE_TEMP: float = 0.3
     GEN_RESPONSE_MAX_TOKENS: int = 1000
     GEN_RESPONSE_REPETITION_PENALTY: float = 1.2
     GEN_RESPONSE_FREQUENCY_PENALTY: float = 0.4
     GEN_RESPONSE_TOP_K: int = 60
     GEN_RESPONSE_TOP_N_TOKENS: int = 5
     GEN_RESPONSE_TOP_P: float = 0.8
-
 
 DefaultValuesLLM = DefaultValuesLLM()
 
