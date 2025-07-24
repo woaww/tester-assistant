@@ -1,9 +1,11 @@
 import streamlit as st
-from src.text_constants import Separatiors
+from app.src.logger import LOGGER
+from src.text_constants import LoggerMsg, Separatiors
 from generate_modules.test_case_generator import generate_api_test_cases
 from src.specification_api import SpecificationParser
 from streamlit_modules.session_manager import add_case
 from src.text_constants import AppSettings
+from streamlit_modules.session_manager import extract_url
 
 def button_get_test_case(spec_url: str,
                          spec_method: str,
@@ -20,8 +22,10 @@ def button_get_test_case(spec_url: str,
                 return
             else:
                 try:
-                    parser = SpecificationParser(spec_url)
-                    spec_description = parser.parse_specification(spec_method)
+                    clean_spec_url = extract_url(spec_url)
+                    parser = SpecificationParser(clean_spec_url)
+                    clean_spec_method = extract_url(spec_method, http_flag=False)
+                    spec_description = parser.parse_specification(clean_spec_method)
                     
                     with st.spinner(AppSettings.SPINNER):
                         response = generate_api_test_cases(
@@ -39,4 +43,6 @@ def button_get_test_case(spec_url: str,
                         st.session_state.api_cases_generated = True
 
                 except Exception as e:
-                    st.error(f"Ошибка при обработке спецификации: {e}")
+                    st.error(f"Ошибка при обработке спецификации API")
+                    LOGGER.error(LoggerMsg.ERROR_GENERATE_API_TEST_CASES,
+                                 SpecificationParser.__name__, e)
