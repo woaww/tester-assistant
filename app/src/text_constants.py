@@ -161,9 +161,6 @@ class GeneralUtilitsConsts:
 
 
 class LoggerMsg:
-    NOT_IMPLEMENTED = "Потоковая генерация не поддерживается." #!!!
-    ERROR_RESPONSE_LLM_MSG = 'Задайте вопрос по теме, пожалуйста' #!!!
-    ERROR_RESPONSE_LLM = "Ошибка вызова модели:" #!!!
     ERROR_WIKI_GET_SCENARIO = "Ошибка получения сценария: " #!!!
         #Шаблон сообщения об ошибке
     ERROR: str = "An error %s in %s"
@@ -190,13 +187,6 @@ class LoggerMsg:
     #сообщение о промпте
     INFO_PROMPT: str = "Prompt: %s, Заголовок блока: %s"
     #сообщение о результате до обновления
-    INFO_RESULT_BEFORE_UPDATE: str = "Результат до update_result_scores: %s"
-    #сообщение о результате после обновления
-    INFO_RESULT_AFTER_UPDATE: str = "Результат после update_result_scores: %s"
-    #сообщение о некорректной оценке
-    WARNING_INVALID_RATING: str = "Invalid rating extracted for: %s"
-    #сообщение о добавлении разделителя
-    INFO_SEPARATOR_ADDED: str = "Добавлен разделитель для блока: %s"
     ERROR_GET_DATA_PAGE: str = "Ошибка получения данных страницы: "
     ERROR_EXTRACT_LINK_WIKI: str = "Пожалуйста, введите корректную ссылку (должна начинаться с http:// или https://)."
     ERROR_JIRA_GET_SUMMARY: str = "Ошибка получения заголовка тикета: "

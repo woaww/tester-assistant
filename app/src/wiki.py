@@ -6,7 +6,7 @@ from src.text_constants import (UtilitsParsing, Keys, LoggerMsg)
 from src.text_constants import WIKI_TOKEN
 
 
-class WikiClient:    
+class WikiClient:
     """
     Клиент для работы с Atlassian Confluence.
     Парсит страницы, извлекает текст и таблицы в структурированном виде.
@@ -21,23 +21,18 @@ class WikiClient:
         self.confluence = Confluence(
             url=UtilitsParsing.URL_WIKI, token=WIKI_TOKEN)
 
-    # def is_wiki_url(self, text: str) -> bool:
-    #     """Проверяет, является ли введённый текст ссылкой на страницу Вики."""
-    #     parsed = self._parse_url(text)
-    #     return "confluence" in parsed.netloc or "wiki" in parsed.netloc
-
     def _parse_url(self, url: str):
         """Парсит URL и возвращает объект urlparse."""
         return urlparse(url)
     
-    def extract_page_id(self, url):
-    # Используем регулярное выражение для поиска pageId
+    # def extract_page_id(self, url):
+    # # Используем регулярное выражение для поиска pageId
     
-        match = re.search(UtilitsParsing.PATTERN_PAGE_ID, url)
-        if match:
-            return match.group(1)
-        else:
-            return LoggerMsg.ERROR_EXTRACT_LINK_WIKI
+    #     match = re.search(UtilitsParsing.PATTERN_PAGE_ID, url)
+    #     if match:
+    #         return match.group(1)
+    #     else:
+    #         return LoggerMsg.ERROR_EXTRACT_LINK_WIKI
 
     def get_wiki_page(self, page_id: str) -> dict:
         """Получает данные страницы из Confluence по её ID."""
@@ -96,4 +91,3 @@ class WikiClient:
             return scenario
         except Exception as e:
             raise RuntimeError(f"{LoggerMsg.ERROR_WIKI_GET_SCENARIO}{str(e)}")
-

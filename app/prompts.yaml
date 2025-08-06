@@ -30,6 +30,8 @@ test_case_prompt:
 
     Описание задачи: {description}
 
+    </no think> 
+
 # Промпт для генерации тест-кейсов API (CURL)
 api_curl_test_case_prompt:
   version: "1.0"
@@ -70,6 +72,8 @@ api_curl_test_case_prompt:
 
     Пожалуйста, сгенерируй необходимое количество тестовых кейсов, исходя из сложности API.
 
+    </no think> 
+
 
 # Промпт для генерации тест-кейсов API (Java + RestAssured или Python + Requests)
 api_languages_test_case_prompt:
@@ -88,3 +92,5 @@ api_languages_test_case_prompt:
 
     Тест-кейсы, которые необходимо написать на {language}:  
     {description}
+
+    </no think> 
