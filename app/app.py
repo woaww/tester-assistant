@@ -85,11 +85,13 @@ match OPTIONS:
                 
                     st.markdown(split_wiki_jira_tests_by_separator(get_wiki_cases()))
         
+        new_section_name = st.text_area("Введите название секции для TestIt'а")
+
         if st.button("Отправить в TestIt"):
             if not description_text:
                 st.warning("Введите описание задачи и сгенерируйте тесты")
             else:
-                new_section_name = st.text_area("Введите название секции")
+                
                 client = TestItClient()
 
                 project_id, global_project_id, new_section_id = client.send_testit_func(
@@ -210,11 +212,12 @@ match OPTIONS:
                         add_case(rep_w_separator, case_type='jira')
                         st.markdown(split_wiki_jira_tests_by_separator(get_jira_cases()))
 
+        new_section_name = st.text_area("Введите название секции для TestIt'а")
+
         if st.button("Отправить в TestIt"):
             if not description_text:
                 st.warning("Введите описание задачи и сгенерируйте тесты")
             else:
-                new_section_name = st.text_area("Введите название секции")
                 client = TestItClient()
 
                 project_id, global_project_id, new_section_id = client.send_testit_func(
