@@ -87,24 +87,63 @@ match OPTIONS:
         
         new_section_name = st.text_area("Введите название секции для TestIt'а")
 
+        # === 6. Кнопка: Отправить в TestIt ===
         if st.button("Отправить в TestIt"):
-            if not description_text:
-                st.warning("Введите описание задачи и сгенерируйте тесты")
+            if not get_wiki_cases():
+                st.warning("Нет тест-кейсов для отправки. Сначала сгенерируйте кейсы.")
+            elif not new_section_name.strip():
+                st.warning("Введите название секции для TestIt.")
             else:
-                
                 client = TestItClient()
+                test_cases = get_wiki_cases()
+                
+                try:
+                    parsed_cases = client.parse_case(test_cases)
+                    total_cases = len(parsed_cases)
+                    if total_cases == 0:
+                        st.warning("⚠️ Не удалось распознать тест-кейсы. Проверьте формат.")
+                        st.text_area("Разобранный текст", test_cases)
+                        st.stop()
+                except Exception as e:
+                    st.error(f"Ошибка при парсинге: {e}")
+                    st.stop()
 
-                project_id, global_project_id, new_section_id = client.send_testit_func(
-                    testCases=get_wiki_cases(),
-                    case_name=new_section_name
-                )
+                st.info(f"🚀 Начинаем загрузку {total_cases} тест-кейсов в TestIt...")
 
-                # === 3. Проверяем результат ===
-                if project_id and new_section_id:
-                    st.markdown(f"✅ Успешно: Создана секция с ID = {new_section_id}")
-                    # print(f"🔗 Проект: {project_id}, Global ID: {global_project_id}")
+                try:
+                    new_section = client.create_section(SectionCreateModel(
+                        name=new_section_name.strip()
+                    ))
+                    st.success(f"✅ Секция '{new_section_name.strip()}' создана: ID = `{new_section}`")
+                except Exception as e:
+                    st.error(f"❌ Ошибка при создании секции: {e}")
+                    st.stop()
+
+                # --- Загрузка тест-кейсов с прогрессом ---
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                success_count = 0
+                failed_cases = []
+
+                for i, case in enumerate(parsed_cases):
+                    try:
+                        client.create_testcase(case)
+                        success_count += 1
+                    except Exception as e:
+                        failed_cases.append(f"`{case.name}`: {e}")
+                    # Обновляем прогресс
+                    progress_bar.progress((i + 1) / total_cases)
+
+                status_text.text("✅ Загрузка завершена")
+                progress_bar.empty()
+
+                if failed_cases:
+                    st.warning(f"✅ Успешно: {success_count}/{total_cases}")
+                    with st.expander("Показать ошибки"):
+                        for msg in failed_cases:
+                            st.markdown(f"- {msg}")
                 else:
-                    st.markdown("❌ Ошибка при создании тест-кейсов.")
+                    st.success(f"✅ Все {total_cases} тест-кейсов успешно загружены в TestIt!")
 
 
     case AppSettings.TYPE_OPTION_CURL:
@@ -224,7 +263,7 @@ match OPTIONS:
             else:
                 client = TestItClient()
                 test_cases = get_jira_cases()
-                
+
                 try:
                     parsed_cases = client.parse_case(test_cases)
                     total_cases = len(parsed_cases)
