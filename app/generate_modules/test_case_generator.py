@@ -19,8 +19,8 @@ def post_process_response(response: str) -> str:
     else:
         cleaned_text = re.sub(r'.*?</think>', '', response, flags=re.DOTALL)
 
-    for el in PostProcStr.LIST_DEL_STR:
-        cleaned_text = cleaned_text.replace(el, '')
+    # for el in PostProcStr.LIST_DEL_STR:
+    #     cleaned_text = cleaned_text.replace(el, '')
 
     return cleaned_text
 

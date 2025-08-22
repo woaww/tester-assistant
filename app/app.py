@@ -5,11 +5,12 @@ from streamlit_modules.session_manager import (init_session, get_wiki_cases, get
 from streamlit_modules.settings import (render_param_slider, is_wiki_url, is_http_url,
                                         is_jira_url, reset_params_to_default, is_api_url_method)
 from generate_modules.test_case_generator import (generate_wiki_test_cases, generate_api_test_cases,
-                                                  generate_jira_test_cases)
+                                                  generate_jira_test_cases, post_process_response)
 from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS, Separatiors
 from src.models import ModelParamsConfig
 from streamlit_modules.widgets import button_get_test_case
 from src.utils import split_wiki_jira_tests_by_separator, split_api_test_cases
+from src.testit_client import TestItClient
 
 # --- Инициализация ---
 init_session()
@@ -60,7 +61,7 @@ match OPTIONS:
                         description=description_text,
                         model_params=model_params)
                     
-                    rep_w_separator = Separatiors.sep_cases+response
+                    rep_w_separator = Separatiors.sep_cases+post_process_response(response)
                     
                     add_case(rep_w_separator, case_type='wiki')
                             
@@ -78,11 +79,31 @@ match OPTIONS:
                         description=description_text,
                         model_params=model_params)
                     
-                    rep_w_separator = Separatiors.sep_cases+response
+                    rep_w_separator = Separatiors.sep_cases+post_process_response(response)
 
                     add_case(rep_w_separator, case_type='wiki')
                 
                     st.markdown(split_wiki_jira_tests_by_separator(get_wiki_cases()))
+        
+        if st.button("Отправить в TestIt"):
+            if not description_text:
+                st.warning("Введите описание задачи и сгенерируйте тесты")
+            else:
+                new_section_name = st.text_area("Введите название секции")
+                client = TestItClient()
+
+                project_id, global_project_id, new_section_id = client.send_testit_func(
+                    testCases=get_wiki_cases(),
+                    case_name=new_section_name
+                )
+
+                # === 3. Проверяем результат ===
+                if project_id and new_section_id:
+                    st.markdown(f"✅ Успешно: Создана секция с ID = {new_section_id}")
+                    # print(f"🔗 Проект: {project_id}, Global ID: {global_project_id}")
+                else:
+                    st.markdown("❌ Ошибка при создании тест-кейсов.")
+
 
     case AppSettings.TYPE_OPTION_CURL:
 
@@ -140,7 +161,7 @@ match OPTIONS:
                         language=language
                     )
 
-                    st.markdown(response)
+                    st.markdown(post_process_response(response))
 
     case AppSettings.TYPE_OPTION_JIRA:
         st.subheader(AppSettings.TYPE_OPTION_JIRA)
@@ -162,9 +183,8 @@ match OPTIONS:
                         description=description_text,
                         model_params=model_params
                     )
-                    # LOGGER.info(response)
 
-                    rep_w_separator = Separatiors.sep_cases+response
+                    rep_w_separator = Separatiors.sep_cases+post_process_response(response)
 
                     add_case(rep_w_separator, case_type='jira')
                     
@@ -185,7 +205,26 @@ match OPTIONS:
                             model_params=model_params
                         )
                         
-                        rep_w_separator = Separatiors.sep_cases+response
+                        rep_w_separator = Separatiors.sep_cases+post_process_response(response)
 
                         add_case(rep_w_separator, case_type='jira')
                         st.markdown(split_wiki_jira_tests_by_separator(get_jira_cases()))
+
+        if st.button("Отправить в TestIt"):
+            if not description_text:
+                st.warning("Введите описание задачи и сгенерируйте тесты")
+            else:
+                new_section_name = st.text_area("Введите название секции")
+                client = TestItClient()
+
+                project_id, global_project_id, new_section_id = client.send_testit_func(
+                    testCases=get_jira_cases(),
+                    case_name=new_section_name
+                )
+
+                # === 3. Проверяем результат ===
+                if project_id and new_section_id:
+                    st.markdown(f"✅ Успешно: Создана секция с ID = {new_section_id}")
+                    # print(f"🔗 Проект: {project_id}, Global ID: {global_project_id}")
+                else:
+                    st.markdown("❌ Ошибка при создании тест-кейсов.")
