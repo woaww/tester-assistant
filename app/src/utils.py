@@ -8,13 +8,15 @@ import re
 from typing import Optional, Dict, Union
 from src.text_constants import (GeneralValuesLLM, AppSettings,
                                 Keys, LoggerMsg, GeneralUtilitsConsts)
-from src.logger import LOGGER
+from src.logger import log_function_call,LOGGER
 
 
+@log_function_call()
 def load_prompts(file_path="prompts.yaml"):
     with open(file_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
-
+    
+@log_function_call()
 def split_wiki_jira_tests_by_separator(text):
     full_text = "\n".join(text)
     # Разбиваем текст по "---\n\n"
@@ -27,6 +29,7 @@ def split_wiki_jira_tests_by_separator(text):
     
     return formatted_text
 
+@log_function_call()
 def split_api_test_cases(data):
     # full_text = "\n".join(data)
     test_cases = []
@@ -49,6 +52,7 @@ def split_api_test_cases(data):
     return formatted_text
 
 @retry(tries=GeneralUtilitsConsts.RETRY_TRIES)
+@log_function_call()
 def generate_response(prompt_input: Optional[str],
                     model_params: Optional[Dict[str, Union[float, int]]] = None,
                     temp: float = GeneralValuesLLM.GEN_RESPONSE_TEMP,

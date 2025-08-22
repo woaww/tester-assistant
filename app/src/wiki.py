@@ -4,7 +4,7 @@ import re
 from urllib.parse import urlparse
 from src.text_constants import (UtilitsParsing, Keys, LoggerMsg)
 from src.text_constants import WIKI_TOKEN
-
+from .logger import log_function_call
 
 class WikiClient:
     """
@@ -34,14 +34,16 @@ class WikiClient:
     #     else:
     #         return LoggerMsg.ERROR_EXTRACT_LINK_WIKI
 
+    @log_function_call()
     def get_wiki_page(self, page_id: str) -> dict:
         """Получает данные страницы из Confluence по её ID."""
-        try:
-            page = self.confluence.get_page_by_id(page_id, expand='body.storage')
-            return page
-        except Exception as e:
-            raise RuntimeError(f"{LoggerMsg.ERROR_GET_DATA_PAGE}{str(e)}")
+        # try:
+        page = self.confluence.get_page_by_id(page_id, expand='body.storage')
+        return page
+        # except Exception as e:
+        #     raise RuntimeError(f"{LoggerMsg.ERROR_GET_DATA_PAGE}{str(e)}")
 
+    @log_function_call()
     def extract_table_content(self, html_content: str) -> str:
         """Извлекает содержимое таблиц из HTML-кода и формирует строку."""
         parsed_html = BeautifulSoup(html_content, 'html.parser')
@@ -68,10 +70,12 @@ class WikiClient:
 
         return test_str.strip()
 
+    @log_function_call()
     def prepare_string(self, text: str) -> str:
         """Очищает и готовит текст к использованию."""
         return re.sub(r'\s+', Keys.SPACE, text).strip()
 
+    @log_function_call()
     def get_wiki_scenario(self, page_id: str) -> str:
         """
         Получает сценарий из Confluence по ID страницы.
@@ -82,12 +86,12 @@ class WikiClient:
         separator = page_id.split('=', 1)
         page_id = separator[1] if len(separator) > 1 else page_id
 
-        try:
-            page = self.get_wiki_page(page_id)
-            self.page_title = page.get(Keys.TITLE, Keys.EMPTY)
+        # try:
+        page = self.get_wiki_page(page_id)
+        self.page_title = page.get(Keys.TITLE, Keys.EMPTY)
 
-            html_content = page['body']['storage']['value']
-            scenario = self.extract_table_content(html_content)
-            return scenario
-        except Exception as e:
-            raise RuntimeError(f"{LoggerMsg.ERROR_WIKI_GET_SCENARIO}{str(e)}")
+        html_content = page['body']['storage']['value']
+        scenario = self.extract_table_content(html_content)
+        return scenario
+        # except Exception as e:
+        #     raise RuntimeError(f"{LoggerMsg.ERROR_WIKI_GET_SCENARIO}{str(e)}")

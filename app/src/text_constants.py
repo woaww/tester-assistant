@@ -6,57 +6,8 @@ load_dotenv()
 LLM_URL = os.getenv("LLM_URL")
 WIKI_TOKEN = os.getenv("WIKI_TOKEN")
 JIRA_TOKEN = os.getenv("JIRA_TOKEN")
-# Logger constatns
+TESTIT_TOKEN =  os.getenv("TESTIT_TOKEN")
 
-LOG_FORMAT = ('%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] '
-              '%(message)s - Function: %(funcName)s')
-LOG_DATETIME_FORMAT = '%Y-%m-%d:%H:%M:%S'
-
-# Константы для записи в файл для сборки статистики
-# COLUMN_EMAIL = "email"
-# COLUMN_PROMPT = "prompt"
-# COLUMN_FILE = "file"
-PARAMETR_TEMPERATURE = "temperature"
-PARAMETR_MAX_NEW_TOKENS = "max_new_tokens"
-PARAMETR_REPETITION_PENALTY = "repetition_penalty"
-PARAMETR_FREQUENCY_PENALTY = "frequency_penalty"
-COLUMN_RESPONSE_EVAL = "response_eval"
-COLUMN_RATING = "rating"
-COLUMN_FEEDBACK_TEXT = "feedback_text"
-
-# LIST_OF_COLUMNS_STATS_FILE = [
-#     "email", "model", "file", "version_prompt",
-#     "temperature", "max_new_tokens",
-#     "repetition_penalty", "frequency_penalty",
-#     "response_eval", "rating", "feedback_text"
-# ]
-
-
-# Паттерн для обработки строки
-KEY_EMPTY_KEY = ''
-
-# Константы эмодзи
-# Для оценок добавляем форму с обратной связью от пользователь
-LIKE = "👍"
-DCRPTN_LIKE = "Полезный ответ"
-TNK_EVAL = "Спасибо за оценку и обратную связь!"
-DISLIKE = "👎" 
-DCRPTN_DISLIKE = "Не очень"
-DEFAULT_RATING_EMOJI = {"like": LIKE, "dislike": DISLIKE}
-
-# KEYS from dictionaries
-KEY_CONTENT = "content"
-
-KEY_STATUS_FOR_USECASE = 'status_for_usecase'
-KEY_GENERATED_TEXT = 'generated_text'
-KEY_RESPONSE_EVAL = 'response_eval'
-KEY_RATING = 'rating'
-KEY_ROLE = "role"
-KEY_ROLES = "roles"
-KEY_DISLIKE = "dislike"
-KEY_LIKE = "like"
-
-ST_SELECTBOX = "Выберите действие"
 
 PART_PAGE_PREDUSLOVIE = "Предусловия"
 PART_PAGE_MAIN_USLOVIE = "Основной сценарий"
@@ -104,15 +55,17 @@ class Keys:
     GENERATED_TEXT: str = "generated_text"
     SPACE: str = " "
     EMPTY: str = ""
-    SPLIT_SIGN = ","
-    TITLE = "title"
+    SPLIT_SIGN: str = ","
+    CONTENT: str = "content"
+    TITLE: str = "title"
 
 class UtilitsParsing:
-    #Токен для доступа к вики
-    # WIKI_TOKEN: str = "wiki_token"
     #Используется для создаиния конфлю-эклиента
     URL_WIKI: str = "https://wiki.domrf.ru"
     URL_JIRA: str = "https://jira.domrf.ru"
+    URL_TESTIT: str = 'https://testit.domrf.ru'
+    SECTION_TESTIT: str = "4d3811ab-7b03-4b76-9685-68c69d973e68"
+    PROJECT_ID: str = "94983664-636a-4f9c-90e7-07f768df7979"
     #Используется для извлечения ID страницы из URL
     PATTERN_URL_ID: str = r'pageId=(\d+)'
     NOT_HEADERS_TIM = "ТИМ"
@@ -163,15 +116,15 @@ class GeneralUtilitsConsts:
 class LoggerMsg:
     ERROR_WIKI_GET_SCENARIO = "Ошибка получения сценария: " #!!!
         #Шаблон сообщения об ошибке
-    ERROR: str = "An error %s in %s"
+    ERROR: str = "An error"
     #Информационное сообщение о получении обратной связи
     INFO_GET_FEEDBACK: str = "Get feedback"
     #о записи обратной связи
     INFO_WRITE_FEEDBACK: str = "Writing feedback"
     #о начале операции
-    INFO_START: str = "Starting %s for: %s"
+    INFO_START: str = "Starting"
     #о завершении операции
-    INFO_END: str = "Completed %s for: %s"
+    INFO_END: str = "Completed"
     #о процессе проверки
     INFO_PROCESS_CHECK: str = "Processing check %d/%d: %s"
     #о несоответствии заголовков
