@@ -231,47 +231,47 @@ class TestItClient:
 
         return cases
 
-    @log_function_call(allowed_kwargs=["case_name"])
-    def send_testit_func(
-        self,
-        testCases: str,
-        # testit_project: str,
-        # testit_section: str,
-        case_name: str
-    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-        """
-        Основной метод: создаёт секцию и тест-кейсы.
-        :return: (project_id, global_project_id, new_section_id)
-        """
-        try:
-            # self.get_project_id(testit_project)
-            project_id = UtilitsParsing.PROJECT_ID
-            # self.get_global_project_id(testit_project)
-            global_project_id = UtilitsParsing.PROJECT_ID
-            testit_section = UtilitsParsing.SECTION_TESTIT
+    # @log_function_call(allowed_kwargs=["case_name"])
+    # def send_testit_func(
+    #     self,
+    #     testCases: str,
+    #     # testit_project: str,
+    #     # testit_section: str,
+    #     case_name: str
+    # ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    #     """
+    #     Основной метод: создаёт секцию и тест-кейсы.
+    #     :return: (project_id, global_project_id, new_section_id)
+    #     """
+    #     try:
+    #         # self.get_project_id(testit_project)
+    #         project_id = UtilitsParsing.PROJECT_ID
+    #         # self.get_global_project_id(testit_project)
+    #         global_project_id = UtilitsParsing.PROJECT_ID
+    #         testit_section = UtilitsParsing.SECTION_TESTIT
 
-            new_section = self.create_section(SectionCreateModel(
-                project_id=project_id,
-                parent_id=testit_section,
-                name=case_name
-            ))
+    #         new_section = self.create_section(SectionCreateModel(
+    #             project_id=project_id,
+    #             parent_id=testit_section,
+    #             name=case_name
+    #         ))
 
-            parsed_cases = self.parse_case(testCases)
-            for case in parsed_cases:
-                case.project_id = project_id
-                case.section_id = new_section
-                try:
-                    self.create_testcase(case)
-                except Exception as e:
-                    LOGGER.error(
-                        f"Failed to create test case '{case.name}': {e}")
-                    continue  # Продолжаем, не падаем
+    #         parsed_cases = self.parse_case(testCases)
+    #         for case in parsed_cases:
+    #             case.project_id = project_id
+    #             case.section_id = new_section
+    #             try:
+    #                 self.create_testcase(case)
+    #             except Exception as e:
+    #                 LOGGER.error(
+    #                     f"Failed to create test case '{case.name}': {e}")
+    #                 continue  # Продолжаем, не падаем
 
-            return project_id, global_project_id, new_section
+    #         return project_id, global_project_id, new_section
 
-        except Exception as e:
-            LOGGER.error(f"Error in send_testit_func: {e}")
-            return "", "", ""
+    #     except Exception as e:
+    #         LOGGER.error(f"Error in send_testit_func: {e}")
+    #         return "", "", ""
 
     # def _search_project(self, search_value: str) -> Optional[ProjectSearchResponse]:
     #     url = f"{self.base_url}/api/v2/projects/search"

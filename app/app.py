@@ -7,7 +7,7 @@ from streamlit_modules.settings import (render_param_slider, is_wiki_url, is_htt
 from generate_modules.test_case_generator import (generate_wiki_test_cases, generate_api_test_cases,
                                                   generate_jira_test_cases, post_process_response)
 from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS, Separatiors
-from src.models import ModelParamsConfig
+from src.models import ModelParamsConfig, SectionCreateModel
 from streamlit_modules.widgets import button_get_test_case
 from src.utils import split_wiki_jira_tests_by_separator, split_api_test_cases
 from src.testit_client import TestItClient
@@ -212,22 +212,63 @@ match OPTIONS:
                         add_case(rep_w_separator, case_type='jira')
                         st.markdown(split_wiki_jira_tests_by_separator(get_jira_cases()))
 
+        # === 5. Ввод названия секции для TestIt ===
         new_section_name = st.text_area("Введите название секции для TestIt'а")
 
+        # === 6. Кнопка: Отправить в TestIt ===
         if st.button("Отправить в TestIt"):
-            if not description_text:
-                st.warning("Введите описание задачи и сгенерируйте тесты")
+            if not get_jira_cases():
+                st.warning("Нет тест-кейсов для отправки. Сначала сгенерируйте кейсы.")
+            elif not new_section_name.strip():
+                st.warning("Введите название секции для TestIt.")
             else:
                 client = TestItClient()
+                test_cases = get_jira_cases()
+                
+                try:
+                    parsed_cases = client.parse_case(test_cases)
+                    total_cases = len(parsed_cases)
+                    if total_cases == 0:
+                        st.warning("⚠️ Не удалось распознать тест-кейсы. Проверьте формат.")
+                        st.text_area("Разобранный текст", test_cases)
+                        st.stop()
+                except Exception as e:
+                    st.error(f"Ошибка при парсинге: {e}")
+                    st.stop()
 
-                project_id, global_project_id, new_section_id = client.send_testit_func(
-                    testCases=get_jira_cases(),
-                    case_name=new_section_name
-                )
+                st.info(f"🚀 Начинаем загрузку {total_cases} тест-кейсов в TestIt...")
 
-                # === 3. Проверяем результат ===
-                if project_id and new_section_id:
-                    st.markdown(f"✅ Успешно: Создана секция с ID = {new_section_id}")
-                    # print(f"🔗 Проект: {project_id}, Global ID: {global_project_id}")
+                try:
+                    new_section = client.create_section(SectionCreateModel(
+                        name=new_section_name.strip()
+                    ))
+                    st.success(f"✅ Секция '{new_section_name.strip()}' создана: ID = `{new_section}`")
+                except Exception as e:
+                    st.error(f"❌ Ошибка при создании секции: {e}")
+                    st.stop()
+
+                # --- Загрузка тест-кейсов с прогрессом ---
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                success_count = 0
+                failed_cases = []
+
+                for i, case in enumerate(parsed_cases):
+                    try:
+                        client.create_testcase(case)
+                        success_count += 1
+                    except Exception as e:
+                        failed_cases.append(f"`{case.name}`: {e}")
+                    # Обновляем прогресс
+                    progress_bar.progress((i + 1) / total_cases)
+
+                status_text.text("✅ Загрузка завершена")
+                progress_bar.empty()
+
+                if failed_cases:
+                    st.warning(f"✅ Успешно: {success_count}/{total_cases}")
+                    with st.expander("Показать ошибки"):
+                        for msg in failed_cases:
+                            st.markdown(f"- {msg}")
                 else:
-                    st.markdown("❌ Ошибка при создании тест-кейсов.")
+                    st.success(f"✅ Все {total_cases} тест-кейсов успешно загружены в TestIt!")
