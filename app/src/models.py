@@ -56,7 +56,7 @@ class StepModel(BaseModel):
     expected: Optional[str] = None
 
 class TestCaseCreateModel(BaseModel):
-    project_id: str
+    project_id: str = UtilitsParsing.PROJECT_ID
     section_id: str
     name: str
     steps: List[Dict[str, Optional[str]]] = []

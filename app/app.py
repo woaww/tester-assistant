@@ -130,6 +130,7 @@ match OPTIONS:
 
                 for i, case in enumerate(parsed_cases):
                     try:
+                        case.section_id = new_section
                         client.create_testcase(case)
                         success_count += 1
                     except Exception as e:
@@ -299,6 +300,7 @@ match OPTIONS:
 
                 for i, case in enumerate(parsed_cases):
                     try:
+                        case.section_id = new_section
                         client.create_testcase(case)
                         success_count += 1
                     except Exception as e:
