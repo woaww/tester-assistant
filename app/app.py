@@ -96,8 +96,9 @@ match OPTIONS:
             else:
                 client = TestItClient()
                 test_cases = get_wiki_cases()
-                test_cases.replace(Separatiors.sep_cases, '')
-                full_test_cases = "\n\n---\n\n".join(str(case) for case in test_cases if case.strip())
+                # test_cases.replace(Separatiors.sep_cases, '')
+                full_test_cases = "\n\n---\n\n".join(str(case).replace(Separatiors.sep_cases,
+                                                                       '') for case in test_cases if case.strip())
                 
                 try:
                     parsed_cases = client.parse_case(full_test_cases)
@@ -265,8 +266,8 @@ match OPTIONS:
             else:
                 client = TestItClient()
                 test_cases = get_jira_cases()
-                test_cases.replace(Separatiors.sep_cases, '')
-                full_test_cases = "\n\n---\n\n".join(str(case) for case in test_cases if case.strip())
+                full_test_cases = "\n\n---\n\n".join(str(case).replace(Separatiors.sep_cases,
+                                                                       '') for case in test_cases if case.strip())
 
                 try:
                     parsed_cases = client.parse_case(full_test_cases)
