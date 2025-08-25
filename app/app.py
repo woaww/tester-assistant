@@ -96,13 +96,15 @@ match OPTIONS:
             else:
                 client = TestItClient()
                 test_cases = get_wiki_cases()
+                test_cases.replace(Separatiors.sep_cases, '')
+                full_test_cases = "\n\n---\n\n".join(str(case) for case in test_cases if case.strip())
                 
                 try:
-                    parsed_cases = client.parse_case(test_cases)
+                    parsed_cases = client.parse_case(full_test_cases)
                     total_cases = len(parsed_cases)
                     if total_cases == 0:
                         st.warning("⚠️ Не удалось распознать тест-кейсы. Проверьте формат.")
-                        st.text_area("Разобранный текст", test_cases)
+                        st.text_area("Разобранный текст", full_test_cases)
                         st.stop()
                 except Exception as e:
                     st.error(f"Ошибка при парсинге: {e}")
@@ -263,13 +265,15 @@ match OPTIONS:
             else:
                 client = TestItClient()
                 test_cases = get_jira_cases()
+                test_cases.replace(Separatiors.sep_cases, '')
+                full_test_cases = "\n\n---\n\n".join(str(case) for case in test_cases if case.strip())
 
                 try:
-                    parsed_cases = client.parse_case(test_cases)
+                    parsed_cases = client.parse_case(full_test_cases)
                     total_cases = len(parsed_cases)
                     if total_cases == 0:
                         st.warning("⚠️ Не удалось распознать тест-кейсы. Проверьте формат.")
-                        st.text_area("Разобранный текст", test_cases)
+                        st.text_area("Разобранный текст", full_test_cases)
                         st.stop()
                 except Exception as e:
                     st.error(f"Ошибка при парсинге: {e}")

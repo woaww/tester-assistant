@@ -106,3 +106,4 @@ def is_unique(new_case, case_type='wiki'):
 def clear_session():
     st.session_state.wiki_cases = []
     st.session_state.api_cases = []
+    st.session_state.jira_cases = []

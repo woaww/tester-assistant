@@ -22,7 +22,7 @@ SELECTOR_STR_SCENARIO = f'th:-soup-contains("{PART_PAGE_SCENARIO}") + td'
 SELECTOR_STR_POSTUSLOVIE = f'th:-soup-contains("{PART_PAGE_POSTUSLOVIE}") + td'
 
 class Separatiors:
-    sep_cases: str = '---\n\n'+'---\n\n'+'---\n\n'
+    sep_cases: str = '✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱'
 
 class PostProcStr:
     general_text_0: str = "Эти тесты покрывают основные сценарии использования метода,"
