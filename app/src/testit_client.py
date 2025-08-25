@@ -124,8 +124,6 @@ class TestItClient:
     def parse_case(self, tc: str) -> List[TestCaseCreateModel]:
         cases = []
 
-        tc = tc.strip()
-
         tokens = re.split(r'\n-{3,}\n', tc)
         tokens = [t.strip() for t in tokens if t.strip()]
 
@@ -231,72 +229,4 @@ class TestItClient:
 
         return cases
 
-    # @log_function_call(allowed_kwargs=["case_name"])
-    # def send_testit_func(
-    #     self,
-    #     testCases: str,
-    #     # testit_project: str,
-    #     # testit_section: str,
-    #     case_name: str
-    # ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-    #     """
-    #     Основной метод: создаёт секцию и тест-кейсы.
-    #     :return: (project_id, global_project_id, new_section_id)
-    #     """
-    #     try:
-    #         # self.get_project_id(testit_project)
-    #         project_id = UtilitsParsing.PROJECT_ID
-    #         # self.get_global_project_id(testit_project)
-    #         global_project_id = UtilitsParsing.PROJECT_ID
-    #         testit_section = UtilitsParsing.SECTION_TESTIT
 
-    #         new_section = self.create_section(SectionCreateModel(
-    #             project_id=project_id,
-    #             parent_id=testit_section,
-    #             name=case_name
-    #         ))
-
-    #         parsed_cases = self.parse_case(testCases)
-    #         for case in parsed_cases:
-    #             case.project_id = project_id
-    #             case.section_id = new_section
-    #             try:
-    #                 self.create_testcase(case)
-    #             except Exception as e:
-    #                 LOGGER.error(
-    #                     f"Failed to create test case '{case.name}': {e}")
-    #                 continue  # Продолжаем, не падаем
-
-    #         return project_id, global_project_id, new_section
-
-    #     except Exception as e:
-    #         LOGGER.error(f"Error in send_testit_func: {e}")
-    #         return "", "", ""
-
-    # def _search_project(self, search_value: str) -> Optional[ProjectSearchResponse]:
-    #     url = f"{self.base_url}/api/v2/projects/search"
-    #     headers = {
-    #         "Accept": "application/json",
-    #         "Content-Type": "application/json; charset=utf-8",
-    #         "Authorization": f"PrivateToken {self.token}"
-    #     }
-    #     try:
-    #         response = requests.post(url, json={"name": search_value}, headers=headers, verify=False)
-    #         response.raise_for_status()
-    #         data = response.json()
-    #         if data:
-    #             return ProjectSearchResponse(**data[0])
-    #         return None
-    #     except Exception as e:
-    #         LOGGER.error(f"Failed to search project '{search_value}': {e}")
-    #         return None
-
-    # @log_function_call(allowed_kwargs=["search_value"])
-    # def get_project_id(self, search_value: str) -> Optional[str]:
-    #     res = self._search_project(search_value)
-    #     return res.id if res else None
-
-    # @log_function_call(allowed_kwargs=["search_value"])
-    # def get_global_project_id(self, search_value: str) -> Optional[str]:
-    #     res = self._search_project(search_value)
-    #     return res.globalId if res else None

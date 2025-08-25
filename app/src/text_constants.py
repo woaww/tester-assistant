@@ -81,7 +81,7 @@ class UtilitsParsing:
 
 
 class DefaultValuesLLM:
-    DEF_TEMPERATURE: float = 0.3
+    DEF_TEMPERATURE: float = 0.15
     DEF_MAX_NEW_TOKENS: int = 2500
     DEF_REPETITION_PENALTY: float = 1.2
     DEF_FREQUENCY_PENALTY: float = 0.9
@@ -147,7 +147,7 @@ class LoggerMsg:
 
 
 class GeneralValuesLLM:
-    GEN_RESPONSE_TEMP: float = 0.3
+    GEN_RESPONSE_TEMP: float = 0.15
     GEN_RESPONSE_MAX_TOKENS: int = 1000
     GEN_RESPONSE_REPETITION_PENALTY: float = 1.2
     GEN_RESPONSE_FREQUENCY_PENALTY: float = 0.4
