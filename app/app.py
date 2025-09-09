@@ -6,7 +6,7 @@ from streamlit_modules.settings import (render_param_slider, is_wiki_url, is_htt
                                         is_jira_url, reset_params_to_default, is_api_url_method)
 from generate_modules.test_case_generator import (generate_wiki_test_cases, generate_api_test_cases,
                                                   generate_jira_test_cases, post_process_response)
-from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS, Separatiors
+from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS, Separatiors, UtilitsParsing
 from src.models import ModelParamsConfig, SectionCreateModel
 from streamlit_modules.widgets import button_get_test_case
 from src.utils import split_wiki_jira_tests_by_separator, split_api_test_cases
@@ -117,7 +117,7 @@ match OPTIONS:
                     new_section = client.create_section(SectionCreateModel(
                         name=new_section_name.strip()
                     ))
-                    st.success(f"✅ Секция '{new_section_name.strip()}' создана: ID = `{new_section}`")
+                    st.success(f"✅ Секция '{new_section_name.strip()}' создана")
                 except Exception as e:
                     st.error(f"❌ Ошибка при создании секции: {e}")
                     st.stop()
@@ -130,6 +130,7 @@ match OPTIONS:
 
                 for i, case in enumerate(parsed_cases):
                     try:
+                        case.project_id = UtilitsParsing.PROJECT_ID
                         case.section_id = new_section
                         client.create_testcase(case)
                         success_count += 1
@@ -287,7 +288,7 @@ match OPTIONS:
                     new_section = client.create_section(SectionCreateModel(
                         name=new_section_name.strip()
                     ))
-                    st.success(f"✅ Секция '{new_section_name.strip()}' создана: ID = `{new_section}`")
+                    st.success(f"✅ Секция '{new_section_name.strip()}' создана")
                 except Exception as e:
                     st.error(f"❌ Ошибка при создании секции: {e}")
                     st.stop()
@@ -300,6 +301,7 @@ match OPTIONS:
 
                 for i, case in enumerate(parsed_cases):
                     try:
+                        case.project_id = UtilitsParsing.PROJECT_ID
                         case.section_id = new_section
                         client.create_testcase(case)
                         success_count += 1
