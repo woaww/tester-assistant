@@ -62,7 +62,7 @@ def button_api_get_test_case(kwargs: ApiKwargs) -> None:
                     st.download_button(
                         label="Скачать результат",
                         data=st.session_state.translated_test_cases_response,
-                        file_name=f"example.{LANGUAGE_MAPPING[kwargs.language]["extension"]}",
+                        file_name=f"example.{LANGUAGE_MAPPING[kwargs.language].get('extension')}",
                         mime=LANGUAGE_MAPPING[kwargs.language]["mime"]
                     )
 

@@ -34,7 +34,6 @@ LANGUAGE_MAPPING = {
         "extension": "java",
         "mime": "text/x-java-source"
     }
-    # Можно добавить другие языки по аналогии
 }
 
 class Separatiors:
