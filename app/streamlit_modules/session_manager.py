@@ -1,5 +1,5 @@
 import streamlit as st
-from src.utils import generate_response
+# from src.utils import generate_response
 
 def init_session():
     if 'wiki_cases' not in st.session_state:
@@ -52,56 +52,56 @@ def fn(new_case):
     else:
         return new_case
 
-def is_unique(new_case, case_type='wiki'):
+# def is_unique(new_case, case_type='wiki'):
 
-    # Получаем список тест-кейсов по типу
-    cases = get_wiki_cases() if case_type == 'wiki' else get_api_cases()
+#     # Получаем список тест-кейсов по типу
+#     cases = get_wiki_cases() if case_type == 'wiki' else get_api_cases()
 
-    # Если список пуст — уникальный
-    if not cases:
-        return True
+#     # Если список пуст — уникальный
+#     if not cases:
+#         return True
 
-    # Собрать историю тест-кейсов
-    history = "\n".join([f"- {case['id']}: {case['description']}" for case in cases])
+#     # Собрать историю тест-кейсов
+#     history = "\n".join([f"- {case['id']}: {case['description']}" for case in cases])
 
-    # Формируем промпт для LLM
-    prompt = f"""
-    Пожалуйста, проанализируй следующий тест-кейс и определи, является ли он дубликатом по смыслу среди уже существующих.
+#     # Формируем промпт для LLM
+#     prompt = f"""
+#     Пожалуйста, проанализируй следующий тест-кейс и определи, является ли он дубликатом по смыслу среди уже существующих.
 
-    Новый тест-кейс:
-    {fn(new_case)}
+#     Новый тест-кейс:
+#     {fn(new_case)}
 
-    Список уже существующих тест-кейсов:
-    {history}
+#     Список уже существующих тест-кейсов:
+#     {history}
 
-    Ответ:
-    - "Дубликат" если по смыслу повторяет один из уже существующих.
-    - "Уникальный" если не повторяет.
+#     Ответ:
+#     - "Дубликат" если по смыслу повторяет один из уже существующих.
+#     - "Уникальный" если не повторяет.
 
-    Также верни **вероятность** (от 0 до 1), с которой этот тест-кейс может быть дубликатом.
+#     Также верни **вероятность** (от 0 до 1), с которой этот тест-кейс может быть дубликатом.
 
-    Формат ответа:
-    [Тип] [Вероятность]
-    Пример:
-    Дубликат 0.85
-    Уникальный 0.15
-    """
+#     Формат ответа:
+#     [Тип] [Вероятность]
+#     Пример:
+#     Дубликат 0.85
+#     Уникальный 0.15
+#     """
 
-    # Вызов твоей локальной модели (LocalLLM)
-    response = generate_response(prompt)
+#     # Вызов твоей локальной модели (LocalLLM)
+#     response = generate_response(prompt)
 
-    # Логирование
-    st.write(f"LLM Response: {response}")
+#     # Логирование
+#     st.write(f"LLM Response: {response}")
 
-    # Парсим ответ
-    try:
-        parts = response.strip().split()
-        case_type = parts[0]
-        probability = float(parts[1])
-        return case_type == "Уникальный"
-    except Exception as e:
-        st.warning(f"Ошибка при парсинге ответа модели: {e}")
-        return False
+#     # Парсим ответ
+#     try:
+#         parts = response.strip().split()
+#         case_type = parts[0]
+#         probability = float(parts[1])
+#         return case_type == "Уникальный"
+#     except Exception as e:
+#         st.warning(f"Ошибка при парсинге ответа модели: {e}")
+#         return False
 
 def clear_session():
     st.session_state.wiki_cases = []

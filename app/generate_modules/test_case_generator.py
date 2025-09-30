@@ -1,7 +1,7 @@
-from src.logger import log_function_call, LOGGER
-from src.text_constants import LoggerMsg, PostProcStr, Keys
+from src.logger import log_function_call
+from src.text_constants import Keys
 from src.utils import load_prompts
-from src.utils import generate_response
+from src.utils import sync_generate_response
 from streamlit_modules.session_manager import get_wiki_cases, get_api_cases, get_jira_cases
 import re 
 
@@ -18,10 +18,6 @@ def post_process_response(response: str) -> str:
         cleaned_text = re.sub(r'<think>.*?</think>', '', response, flags=re.DOTALL)
     else:
         cleaned_text = re.sub(r'.*?</think>', '', response, flags=re.DOTALL)
-
-    # for el in PostProcStr.LIST_DEL_STR:
-    #     cleaned_text = cleaned_text.replace(el, '')
-
     return cleaned_text
 
 @log_function_call()
@@ -33,7 +29,7 @@ def generate_wiki_test_cases(description: str,
     formatted_prompt = format_prompt(prompt_template=prompt_template,
                                      existing_cases= get_wiki_cases(),
                                      description=description)
-    response = generate_response(prompt_input=formatted_prompt,
+    response = sync_generate_response(prompt_input=formatted_prompt,
                                  model_params=model_params)
 
     return response
@@ -59,7 +55,7 @@ def generate_api_test_cases(description: str,
                                          description=description,
                                          language=language)
 
-    response = generate_response(prompt_input=formatted_prompt,
+    response = sync_generate_response(prompt_input=formatted_prompt,
                                  model_params=model_params)
 
     return response
@@ -74,7 +70,7 @@ def generate_jira_test_cases(description: str,
                                      existing_cases=get_jira_cases(),
                                      description=description)
 
-    response = generate_response(prompt_input=formatted_prompt,
+    response = sync_generate_response(prompt_input=formatted_prompt,
                                  model_params=model_params)
 
     return response

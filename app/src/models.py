@@ -1,5 +1,5 @@
 from typing import List, Optional, Union, Dict, Any
-from pydantic import BaseModel#, Field
+from pydantic import BaseModel, Field
 from .text_constants import UtilitsParsing
 
 
@@ -66,6 +66,46 @@ class TestCaseCreateModel(BaseModel):
     priority: str = "Medium"
     state: str = "NeedsWork"
     duration: int = 60
-    tags: List[str] = []
+    tags: List[str] = Field(default_factory=lambda: ["ai-assistant"])
     links: List[dict] = []
     attributes: dict = {}
+
+class ApiKwargs(BaseModel):
+    spec_url: str
+    spec_path: str
+    spec_method: str
+    type: str
+    new_cases: bool = False
+    language: str = None
+
+    def __init__(self, 
+                 spec_url: str, 
+                 type: str,
+                 spec_path: str = None, 
+                 spec_method: bool = False,
+                 new_cases: bool = False,
+                 language: str = None):
+        super().__init__(
+            spec_url=spec_url,
+            type=type,
+            spec_path=spec_path,
+            spec_method=spec_method, 
+            new_ases=new_cases,
+            language=language,
+        )
+
+class WikiJiraKwargs(BaseModel):
+    source_type: str
+    description_text: str = None
+    new_cases: bool = False
+
+
+    def __init__(self, 
+                 source_type: str, 
+                 description_text: str = None, 
+                 new_cases: bool = False):
+        super().__init__(
+            source_type=source_type,
+            description_text=description_text,
+            new_cases=new_cases
+        )

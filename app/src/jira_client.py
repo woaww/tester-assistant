@@ -48,3 +48,4 @@ class JiraClient:
             return issue.fields.description or Keys.EMPTY
         except Exception as e:
             raise RuntimeError(f"{LoggerMsg.ERROR_JIRA_GET_DESCRIPTION}{str(e)}")
+

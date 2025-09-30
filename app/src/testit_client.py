@@ -11,7 +11,8 @@ from testit_api_client.model.create_work_item_request import CreateWorkItemReque
 from testit_api_client.model.create_section_request import CreateSectionRequest
 from testit_api_client.configuration import Configuration
 
-from .models import TestCaseCreateModel, SectionCreateModel, ProjectSearchResponse, StepModel
+from .models import (TestCaseCreateModel, SectionCreateModel, 
+                     ProjectSearchResponse, StepModel)
 from .logger import log_function_call, LOGGER
 from .text_constants import UtilitsParsing, TESTIT_TOKEN
 
@@ -124,97 +125,108 @@ class TestItClient:
     def parse_case(self, tc: str) -> List[TestCaseCreateModel]:
         cases = []
 
-        tokens = re.split(r'\n-{3,}\n', tc)
+        # Разделение по пустым строкам между кейсами (одна или более пустых строк)
+        # Предполагается: каждый кейс отделён хотя бы одной пустой строкой
+        tokens = re.split(r'\n\s*\n+', tc.strip())
         tokens = [t.strip() for t in tokens if t.strip()]
 
+        # Если разделения не было — попробуем разбить по началу нового кейса: **1. **Название...
         if len(tokens) == 1:
-            tokens = re.split(r'\n\s*\d+\.\s+', tc)
+            # Разделяем по шаблону: **<число>. **Название...
+            tokens = re.split(r'\n(?=\*\*\d+\. \*\*)', tc.strip())
             tokens = [t.strip() for t in tokens if t.strip()]
-            # Удаляем нумерацию из начала первого токена
-            if tokens:
-                tokens[0] = re.sub(r'^\s*\d+\.\s*', '', tokens[0])
 
         for token in tokens:
             token = token.strip()
             if not token:
                 continue
 
-            case_data = {"name": "", "preconditions": [],
-                         "steps": [], "expected": ""}
+            case_data = {
+                "name": "Unnamed Test Case",
+                "preconditions": [],
+                "steps": [],  # список строк-действий
+                "expected": ""
+            }
 
-            # 1. Название
-            first_line = token.split('\n')[0].strip()
-            name_match = re.search(r'^\s*\d+\.\s*\*\*(.*?)\*\*[:\s]', 
-                                   first_line, 
-                                   re.IGNORECASE)
+            # --- 1. Извлечение названия ---
+            name_match = re.search(
+                r'^\s*\*\*(\d+\.)\s*\*\*Название тест-кейса:\*\*\s*(.+?)(?:\n|$)',
+                token,
+                re.IGNORECASE | re.DOTALL
+            )
             if name_match:
-                case_data["name"] = name_match.group(1).strip()
+                case_data["name"] = name_match.group(2).strip()
             else:
-                # Вариант 2: просто текст после номера
-                clean_name = re.sub(r'^\s*\d+\.\s*', '', first_line)  # удаляем 1.
-                clean_name = re.sub(r'\*\*.*?\*\*', '', clean_name)   # удаляем **...**
-                clean_name = re.sub(r'\s*[:\s].*$', '', clean_name)   # удаляем после :
+                # Резервный вариант: найти первую строку и вытащить название
+                first_line = token.split('\n')[0].strip()
+                clean_name = re.sub(r'^\s*\*\*\d+\.\s*\*\*', '', first_line)
+                clean_name = re.sub(r'Название.*?:\s*', '', clean_name, flags=re.IGNORECASE)
+                clean_name = re.sub(r'\*\*', '', clean_name)
                 case_data["name"] = clean_name.strip() or "Unnamed Test Case"
 
-            body = re.sub(r'\*\*', '', token)
+            # Удаляем форматирование ** для упрощения дальнейшего парсинга
+            clean_token = re.sub(r'\*\*', '', token)
 
-            # 2. Предусловия
+            # --- 2. Предусловия ---
             precond_match = re.search(
-                r'Предусловия[:\s]*(.+?)(?=\s*Шаги|$)',
-                body, 
-                re.IGNORECASE | re.DOTALL)
-            
+                r'Предусловия[:\s]*(.+?)(?=Шаги[:\s]*$|Шаги[:\s]*\n|\Z)',
+                clean_token,
+                re.IGNORECASE | re.DOTALL
+            )
             if precond_match:
                 precond_text = precond_match.group(1).strip()
                 sentences = re.split(r'(?<=[.!?])\s+', precond_text)
-                case_data["preconditions"] = [s.strip()
-                                              for s in sentences if s.strip()]
+                case_data["preconditions"] = [s.strip() for s in sentences if s.strip()]
 
-            # 3. Шаги
+            # --- 3. Шаги ---
             steps_match = re.search(
-                r'Шаги[:\s]*(.+?)(?=\s*Ожидаемый результат|$)',
-                body, 
-                re.IGNORECASE | re.DOTALL)
-            
+                r'Шаги[:\s]*\n((?:\s*\d+\..*?(?:\n|$))+)',
+                clean_token,
+                re.IGNORECASE | re.DOTALL
+            )
             if steps_match:
-                steps_text = steps_match.group(1).strip()
-                step_lines = re.findall(r'\d+\.\s*(.+?)(?=\n\s*\d+\.|\Z)', 
-                                        steps_text, 
-                                        re.DOTALL)
-                case_data["steps"] = [line.strip() for line in step_lines if line.strip()]
-
+                steps_block = steps_match.group(1).strip()
+                # Извлекаем шаги: "1. действие", "2. действие" и т.д.
+                step_lines = re.findall(r'\d+\.\s*(.+?)(?=(?:\n\s*\d+\.|\Z))', steps_block, re.DOTALL)
+                case_data["steps"] = [re.sub(r'\s+', ' ', line.strip()) for line in step_lines if line.strip()]
             else:
-                action_match = re.search(
-                    r'(Выполнить [^.\n]+?\.?)', 
-                    body, 
-                    re.IGNORECASE)
-                
-                if action_match:
-                    case_data["steps"] = [action_match.group(1).strip()]
+                # Если шагов нет — пропускаем кейс
+                LOGGER.warning(f"No steps found in test case: {case_data['name']}")
+                continue
 
-            # 4. Ожидаемый результат
+            # --- 4. Ожидаемый результат ---
             expected_match = re.search(
-                r'Ожидаемый результат[:\s]*(.+?)(?=\n|$)', 
-                body, 
-                re.IGNORECASE | re.DOTALL)
-            
+                r'Ожидаемый результат[:\s]*(.+?)(?=\n\s*$|\Z)',
+                clean_token,
+                re.IGNORECASE | re.DOTALL
+            )
             if expected_match:
                 expected_text = expected_match.group(1).strip()
                 expected_text = re.sub(r'\s+', ' ', expected_text)
-                case_data["expected"] = expected_text.strip(' .')
+                case_data["expected"] = expected_text.rstrip('.')
+            else:
+                case_data["expected"] = "Результат не указан"
 
+            # --- Формирование модели ---
             if not case_data["steps"]:
                 LOGGER.warning(f"No steps in test case: {case_data['name']}")
                 continue
 
+            # Подготовка precondition_steps
             precondition_steps = [
                 {"action": text, "expected": None}
                 for text in case_data["preconditions"]
             ]
 
-            steps_models = [StepModel(action=step, 
-                                      expected=case_data["expected"]).model_dump() for step in case_data["steps"]]
+            # Подготовка шагов: все шаги без expected, кроме последнего
+            steps_models = []
+            n_steps = len(case_data["steps"])
 
+            for i, step_action in enumerate(case_data["steps"]):
+                expected = case_data["expected"] if i == n_steps - 1 else None
+                steps_models.append(StepModel(action=step_action, expected=expected).model_dump())
+
+            # Создание тест-кейса
             test_case_model = TestCaseCreateModel(
                 project_id="",
                 section_id="",
@@ -222,11 +234,8 @@ class TestItClient:
                 steps=steps_models,
                 precondition_steps=precondition_steps,
                 postcondition_steps=[],
-                # precondition_steps=case_data["preconditions"],
-                expected_result=case_data["expected"]
+                expected_result=""  # теперь не используется, т.к. результат в последнем шаге
             )
             cases.append(test_case_model)
 
         return cases
-
-

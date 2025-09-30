@@ -2,7 +2,7 @@ from atlassian import Confluence
 from bs4 import BeautifulSoup
 import re
 from urllib.parse import urlparse
-from src.text_constants import (UtilitsParsing, Keys, LoggerMsg)
+from src.text_constants import (UtilitsParsing, Keys)
 from src.text_constants import WIKI_TOKEN
 from .logger import log_function_call
 
@@ -24,15 +24,6 @@ class WikiClient:
     def _parse_url(self, url: str):
         """Парсит URL и возвращает объект urlparse."""
         return urlparse(url)
-    
-    # def extract_page_id(self, url):
-    # # Используем регулярное выражение для поиска pageId
-    
-    #     match = re.search(UtilitsParsing.PATTERN_PAGE_ID, url)
-    #     if match:
-    #         return match.group(1)
-    #     else:
-    #         return LoggerMsg.ERROR_EXTRACT_LINK_WIKI
 
     @log_function_call()
     def get_wiki_page(self, page_id: str) -> dict:
@@ -40,8 +31,6 @@ class WikiClient:
         # try:
         page = self.confluence.get_page_by_id(page_id, expand='body.storage')
         return page
-        # except Exception as e:
-        #     raise RuntimeError(f"{LoggerMsg.ERROR_GET_DATA_PAGE}{str(e)}")
 
     @log_function_call()
     def extract_table_content(self, html_content: str) -> str:
@@ -93,5 +82,4 @@ class WikiClient:
         html_content = page['body']['storage']['value']
         scenario = self.extract_table_content(html_content)
         return scenario
-        # except Exception as e:
-        #     raise RuntimeError(f"{LoggerMsg.ERROR_WIKI_GET_SCENARIO}{str(e)}")
+    

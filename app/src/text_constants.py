@@ -3,6 +3,10 @@ import os
 
 load_dotenv()
 
+LIKE = "like"
+DISLIKE = "dislike"
+STATS_EVAL_FILE = os.path.join(os.getcwd(),"data","tester-assistant-stats","stats_eval.csv") 
+
 LLM_URL = os.getenv("LLM_URL")
 WIKI_TOKEN = os.getenv("WIKI_TOKEN")
 JIRA_TOKEN = os.getenv("JIRA_TOKEN")
@@ -21,35 +25,20 @@ SELECTOR_STR_ALT_USLOVIE = f'th:-soup-contains("{PART_PAGE_ALT_USLOVIE}") + td'
 SELECTOR_STR_SCENARIO = f'th:-soup-contains("{PART_PAGE_SCENARIO}") + td'
 SELECTOR_STR_POSTUSLOVIE = f'th:-soup-contains("{PART_PAGE_POSTUSLOVIE}") + td'
 
+LANGUAGE_MAPPING = {
+    "Python": {
+        "extension": "py",
+        "mime": "text/x-python"
+    },
+    "Java": {
+        "extension": "java",
+        "mime": "text/x-java-source"
+    }
+    # Можно добавить другие языки по аналогии
+}
+
 class Separatiors:
     sep_cases: str = '✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱'
-
-class PostProcStr:
-    general_text_0: str = "Эти тесты покрывают основные сценарии использования метода,"
-    general_text_1: str = "включая проверку существования заявления, корректность передаваемых данных,"
-    general_text_2: str = "авторизацию и использование правильных HTTP-методов."
-    undefined = "undefined"
-    prompt_text_0: str = "Обратите внимание на то, что каждый тест-кейс содержит уникальный запрос и описание,"
-    prompt_text_1: str = "которое помогает понять его цель и ожидаемый результат."
-    prompt_text_3: str = "Тест-кейсы должны быть уникальными и покрывать все возможные сценарии использования API."
-    resp_text_0: str = "Note that the actual status codes "
-    resp_text_1: str = "and responses may vary depending on the implementation of the API being tested. " 
-    resp_text_2: str = "The above code assumes a successful response for valid requests "
-    resp_text_3: str = "and an error response for invalid or non-existent full-statement-id."
-    resp_text_4: str = "Note that I've used assertions to check the expected behavior of each test case."
-    resp_text_5: str = "You can replace these assertions with your own logic"
-    resp_text_6: str = " or use a testing framework like pytest to run these tests automatically."
-    resp_text_7: str = "Here are the rewritten test cases in Python using the requests library:"
-    resp_text_8: str = "This solution provides a set of JUnit tests for each of the given"
-    resp_text_9: str = " cURL commands using the RestAssured library in Java."
-    resp_text_10: str = " Each method represents one test case,."
-    resp_text_11: str = " with appropriate headers and request bodies included as necessary."
-    resp_text_12: str = " Assertions can be added within the methods to validate the expected responses from the server."
-    LIST_DEL_STR: list = [general_text_2, general_text_1, general_text_0, undefined,
-                          prompt_text_1, prompt_text_0, prompt_text_3, resp_text_0,
-                          resp_text_1, resp_text_2, resp_text_3,resp_text_4,
-                          resp_text_5, resp_text_6, resp_text_7, resp_text_8,
-                          resp_text_9, resp_text_10, resp_text_11, resp_text_12]
 
 class Keys:
     GENERATED_TEXT: str = "generated_text"
@@ -79,6 +68,7 @@ class UtilitsParsing:
     PATTERN_CLEAN_SPACE: str = r'\s+'
     PATTERN_URL: str = r'^(http|https)://'
 
+#TODO:вынести паттерны в отдельный класс
 
 class DefaultValuesLLM:
     DEF_TEMPERATURE: float = 0.15
@@ -98,6 +88,8 @@ class AppSettings:
     SESSION_STATE_TEST_CASES = "test_cases"
     SESSION_STATE_EXISTING_CASES = "existing_cases"
     DSCR_BASE_URL_VALUE = "https://api.example.com"
+    DSCR_BASE_PATH_VALUE = "/path"
+    DSCR_BASE_METHOD_VALUE = "get"
     TYPE_OPTION_WIKI = "Генерация тестового кейса из сценария задачи (Вики)"
     TYPE_OPTION_CURL = "Генерация тестовых кейсов API (CURL)"
     TYPE_OPTION_JIRA = "Генерация тестового кейса из сценария задачи (Jira)"
@@ -125,17 +117,7 @@ class LoggerMsg:
     INFO_START: str = "Starting"
     #о завершении операции
     INFO_END: str = "Completed"
-    #о процессе проверки
-    INFO_PROCESS_CHECK: str = "Processing check %d/%d: %s"
-    #о несоответствии заголовков
-    WARNING_MISMATCH: str = "Title mismatch: %s vs %s"
-    #Предупреждающее сообщение о некорректной структуре блока
-    WARNING_BLOCK_STRUCTURE: str = "Invalid block structure for title: %s"
-    #об ошибке при поиске соответствия
-    ERROR_FIND_BEST_MATCH : str = "Ошибка при поиске соответствия: "
-    #сообщение о значении оценки
-    INFO_SCORE: str = "%s: %s, Заголовок блока: %s"
-    #сообщение о ответе модели
+      #сообщение о ответе модели
     INFO_LLM_RESPONSE: str = "LLM Response: %s, Заголовок блока: %s"
     #сообщение о промпте
     INFO_PROMPT: str = "Prompt: %s, Заголовок блока: %s"
@@ -144,6 +126,10 @@ class LoggerMsg:
     ERROR_EXTRACT_LINK_WIKI: str = "Пожалуйста, введите корректную ссылку (должна начинаться с http:// или https://)."
     ERROR_JIRA_GET_SUMMARY: str = "Ошибка получения заголовка тикета: "
     ERROR_JIRA_GET_DESCRIPTION: str = "Ошибка получения описания тикета: "
+
+    SPEC_API_READ_ERROR = "Ошибка чтении спецификации"
+    SPEC_API_PARSE_ERROR = "Ошибка при парсинге спецификации"
+    SPEC_API_PARSE_ERROR_EMPTY = "Спецификация загружена, но оказалась пустой после парсинга."
 
 
 class GeneralValuesLLM:
