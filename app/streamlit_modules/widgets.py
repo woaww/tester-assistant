@@ -67,18 +67,18 @@ def button_api_get_test_case(kwargs: ApiKwargs) -> None:
                     )
 
 def button_jira_wiki_get_test_case(kwargs: WikiJiraKwargs) -> None:
-    if kwargs.description_text is None:
-        st.session_state.jira_wiki_error_message = "Введите описание задачи"
-        return
+    # if kwargs.description_text is None:
+    #     st.session_state.jira_wiki_error_message = "Введите описание задачи"
+    #     return
 
     match kwargs.source_type:
         case "wiki":
             if kwargs.new_cases and not get_wiki_cases_generated():
                 st.session_state.jira_wiki_error_message = "Сначала сгенерируйте тест-кейсы!"
                 return
-            if not kwargs.description_text:
-                st.session_state.jira_wiki_error_message = "Введите URL страницы Wiki"
-                return
+            # if not kwargs.description_text:
+            #     st.session_state.jira_wiki_error_message = "Введите URL страницы Wiki"
+            #     return
 
             with st.spinner(AppSettings.SPINNER):
                 response = generate_wiki_test_cases(
@@ -98,9 +98,9 @@ def button_jira_wiki_get_test_case(kwargs: WikiJiraKwargs) -> None:
             if kwargs.new_cases and not get_jira_cases_generated():
                 st.session_state.jira_wiki_error_message = "Сначала сгенерируйте тест-кейсы!"
                 return
-            if not kwargs.description_text:
-                st.session_state.jira_wiki_error_message = "Введите URL страницы Jira"
-                return
+            # if not kwargs.description_text:
+            #     st.session_state.jira_wiki_error_message = "Введите URL страницы Jira"
+            #     return
 
             with st.spinner(AppSettings.SPINNER):
                 response = generate_jira_test_cases(

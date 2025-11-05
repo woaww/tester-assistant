@@ -98,12 +98,12 @@ class ApiKwargs(BaseModel):
         )
 
 class WikiJiraKwargs(BaseModel):
-    source_type: str
+    source_type: str = ""
     description_text: str = ""
     new_cases: bool = False
 
     def __init__(self, 
-                 source_type: str, 
+                 source_type: str = "", 
                  description_text: str = "", 
                  new_cases: bool = False):
         super().__init__(

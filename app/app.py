@@ -44,6 +44,10 @@ with st.container():
                 st.subheader(AppSettings.TYPE_OPTION_WIKI)
                 url_or_text = st.text_input("Введите URL страницы Вики")
 
+                if url_or_text in ["", None]:
+                    st.session_state.jira_wiki_error_message = "Введите URL страницы Вики"
+                    st.warning(st.session_state.jira_wiki_error_message)
+
                 description_text = is_wiki_url(url_or_text)
 
                 kwargs_for_wiki = WikiJiraKwargs("wiki",description_text)
@@ -75,7 +79,7 @@ with st.container():
                 
                     # === Отправить в TestIt, источник и фидбэк ==
                     st.button(
-                        label="Отправить комментарий к задаче в Jira",
+                        label="Отправить комментарий к задаче в Вики",
                         on_click=add_comment_to_page,
                         kwargs={'url': url_or_text, 
                                 'comment_body': st.session_state.wiki_test_cases_response}
@@ -160,6 +164,10 @@ with st.container():
             case AppSettings.TYPE_OPTION_JIRA:
                 st.subheader(AppSettings.TYPE_OPTION_JIRA)
                 jira_url = st.text_input("Введите URL страницы Jira")
+
+                if jira_url in ["", None]:
+                    st.session_state.jira_wiki_error_message = "Введите URL страницы Jira"
+                    st.warning(st.session_state.jira_wiki_error_message)
 
                 description_text = is_jira_url(jira_url)
 
