@@ -62,6 +62,12 @@ def split_api_test_cases(data):
     
     return formatted_text
 
+
+#TODO: спросить у Вани про замену урла на имя контейнера ---> напрямую внутри докера можно
+#TODO: 
+
+
+
 @log_function_call()
 # retry с экспоненциальным бэкофом
 @retry(stop=stop_after_attempt(GeneralUtilitsConsts.RETRY_TRIES), 

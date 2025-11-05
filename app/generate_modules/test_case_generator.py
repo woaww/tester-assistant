@@ -20,10 +20,11 @@ def post_process_response(response: str) -> str:
         cleaned_text = re.sub(r'.*?</think>', '', response, flags=re.DOTALL)
     return cleaned_text
 
-@log_function_call()
+@log_function_call() #TODO: исправить логирование ---> prompt [:10]
 def generate_wiki_test_cases(description: str,
                              model_params) -> str:
 
+    
     prompt_template = PROMPTS.get("test_case_prompt", {}).get(
         Keys.CONTENT, Keys.EMPTY)
     formatted_prompt = format_prompt(prompt_template=prompt_template,

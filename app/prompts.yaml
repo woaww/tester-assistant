@@ -51,7 +51,6 @@ test_case_prompt:
 
     Описание задачи: {description}
 
-
     </no think> 
 
 # Промпт для генерации тест-кейсов API (CURL)

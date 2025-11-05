@@ -55,6 +55,9 @@ class StepModel(BaseModel):
     action: str
     expected: Optional[str] = None
 
+class TagModel(BaseModel):
+    name: str
+
 class TestCaseCreateModel(BaseModel):
     project_id: str = UtilitsParsing.PROJECT_ID
     section_id: str
@@ -66,7 +69,7 @@ class TestCaseCreateModel(BaseModel):
     priority: str = "Medium"
     state: str = "NeedsWork"
     duration: int = 60
-    tags: List[str] = Field(default_factory=lambda: ["ai-assistant"])
+    tags: List[TagModel] = Field(default_factory=lambda: [TagModel(name="ai-assistant")])
     links: List[dict] = []
     attributes: dict = {}
 
@@ -76,15 +79,15 @@ class ApiKwargs(BaseModel):
     spec_method: str
     type: str
     new_cases: bool = False
-    language: str = None
+    language: str = ""
 
     def __init__(self, 
                  spec_url: str, 
                  type: str,
-                 spec_path: str = None, 
+                 spec_path: str = "", 
                  spec_method: bool = False,
                  new_cases: bool = False,
-                 language: str = None):
+                 language: str = ""):
         super().__init__(
             spec_url=spec_url,
             type=type,
@@ -96,13 +99,12 @@ class ApiKwargs(BaseModel):
 
 class WikiJiraKwargs(BaseModel):
     source_type: str
-    description_text: str = None
+    description_text: str = ""
     new_cases: bool = False
-
 
     def __init__(self, 
                  source_type: str, 
-                 description_text: str = None, 
+                 description_text: str = "", 
                  new_cases: bool = False):
         super().__init__(
             source_type=source_type,
