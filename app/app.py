@@ -44,16 +44,16 @@ with st.container():
                 st.subheader(AppSettings.TYPE_OPTION_WIKI)
                 url_or_text = st.text_input("Введите URL страницы Вики")
 
-                if url_or_text in ["", None]:
-                    st.session_state.jira_wiki_error_message = "Введите URL страницы Вики"
-                    st.warning(st.session_state.jira_wiki_error_message)
-
                 description_text = is_wiki_url(url_or_text)
 
-                kwargs_for_wiki = WikiJiraKwargs("wiki",description_text)
+                if description_text in ["", None]:
+                    st.session_state.jira_wiki_error_message = "Введите URL страницы Вики"
+                    st.warning(st.session_state.jira_wiki_error_message)
+                else:
+                    kwargs_for_wiki = WikiJiraKwargs("wiki",description_text)
 
-                on_click_with_args_wiki = partial(button_jira_wiki_get_test_case, 
-                                                kwargs_for_wiki)
+                    on_click_with_args_wiki = partial(button_jira_wiki_get_test_case, 
+                                                    kwargs_for_wiki)
 
                 # Кнопка для генерации тест-кейсов (перезапись)
                 st.button(
@@ -165,16 +165,17 @@ with st.container():
                 st.subheader(AppSettings.TYPE_OPTION_JIRA)
                 jira_url = st.text_input("Введите URL страницы Jira")
 
-                if jira_url in ["", None]:
-                    st.session_state.jira_wiki_error_message = "Введите URL страницы Jira"
-                    st.warning(st.session_state.jira_wiki_error_message)
 
                 description_text = is_jira_url(jira_url)
 
-                kwargs_for_jira = WikiJiraKwargs("jira",description_text)
+                if description_text in ["", None]:
+                    st.session_state.jira_wiki_error_message = "Введите URL страницы Jira"
+                    st.warning(st.session_state.jira_wiki_error_message)
+                else:
+                    kwargs_for_jira = WikiJiraKwargs("jira",description_text)
 
-                on_click_with_args_jira_upd = partial(button_jira_wiki_get_test_case, 
-                                                kwargs_for_jira)
+                    on_click_with_args_jira_upd = partial(button_jira_wiki_get_test_case, 
+                                                    kwargs_for_jira)
 
                 # Кнопка для генерации тест-кейсов (перезапись)
                 st.button(
