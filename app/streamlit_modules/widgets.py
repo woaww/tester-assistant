@@ -14,6 +14,8 @@ import pandas as pd
 from typing import Optional, Callable
 from src.jira_client import JiraClient
 from src.wiki import WikiClient
+import time
+from src.mlflow_utilits import log_to_mlflow
 
 def button_api_get_test_case(kwargs: ApiKwargs) -> None:
     match kwargs.type:
@@ -117,7 +119,9 @@ def button_jira_wiki_get_test_case(kwargs: WikiJiraKwargs) -> None:
                 st.session_state.jira_test_cases_response = split_wiki_jira_tests_by_separator(get_jira_cases())
 
 
-def send_to_testit(new_section_name: str, 
+def send_to_testit(project_name: str, 
+                   section_name: str,
+                   new_section_name: str, 
                    source_type: str) -> None:
     """
     Отправляет тест-кейсы в TestIt из разных источников.
@@ -170,7 +174,9 @@ def send_to_testit(new_section_name: str,
 
     try:
         client = TestItClient()
-        new_section = client.create_section(SectionCreateModel(name=new_section_name.strip()))
+        new_section = client.create_section(SectionCreateModel(project_id=client.get_project_id_by_name(project_name),
+                                                               parent_id=client.get_section_id_by_name(section_name),
+                                                               name=new_section_name.strip()))
         st.success(f"✅ Секция '{new_section_name.strip()}' создана")
 
     except Exception as e:
@@ -207,89 +213,50 @@ def send_to_testit(new_section_name: str,
         st.success(f"✅ Все {total_cases} тест-кейсов успешно загружены в TestIt!")
 
 
-
 def feedback_widget(
-    df: pd.DataFrame,
-    like_label: str = "👍 Нравится",
-    dislike_label: str = "👎 Не нравится",
-    on_like: Optional[Callable] = None,
-    on_dislike: Optional[Callable] = None,
-    key_prefix: str = "feedback"
-) -> None:
-    """
-    Виджет для сбора фидбэка (лайк/дизлайк).
-
-    :param df: DataFrame с данными, где нужно обновить рейтинг.
-    :param like_label: Текст для кнопки "Лайк".
-    :param dislike_label: Текст для кнопки "Дизлайк".
-    :param on_like: Функция, вызываемая при нажатии на "Лайк".
-    :param on_dislike: Функция, вызываемая при нажатии на "Дизлайк".
-    :param key_prefix: Префикс для ключей кнопок.
-    """
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.button(
-            like_label,
-            key=f"{key_prefix}_like_{len(df) - 1}",
-            on_click=on_like,
-            args=(df,)
-        )
-
-    with col2:
-        st.button(
-            dislike_label,
-            key=f"{key_prefix}_dislike_{len(df) - 1}",
-            on_click=on_dislike,
-            args=(df,)
-        )
-
-
-def update_rating(rating: str, df: pd.DataFrame) -> None:
-    """Обновляет рейтинг в DataFrame и сохраняет в CSV."""
-    df.loc[df.index[-1], "rating"] = rating
-    df.to_csv(STATS_EVAL_FILE, index=False)
-    st.success("Спасибо за ваш отзыв!")
-
-def like_feedback(df: pd.DataFrame) -> None:
-    """Обработчик нажатия на кнопку 'Лайк'."""
-    update_rating(LIKE, df)
-
-def dislike_feedback(df: pd.DataFrame) -> None:
-    """Обработчик нажатия на кнопку 'Дизлайк'."""
-    update_rating(DISLIKE, df)
-
-
-def save_response_and_get_feedback(
     url: str,
-    response: str, 
+    response: str,
     path: str = None,
     method: str = None,
-    # model_params: Optional[Dict[str, Union[float, int]]] = None,
+    model_params: dict = None,
+    user_email: str = None,
+    like_label: str = "👍 Нравится",
+    dislike_label: str = "👎 Не нравится",
 ) -> None:
-    # Сохраняем ответ в DataFrame
-    new_row = pd.DataFrame([{
-        "url": url,
-        "path": path,
-        "method": method,
-        "response": response,
-        "rating": None,
-    }])
+    """
+    Виджет для сбора фидбэка (лайк/дизлайк) и логирования в MLflow.
+    """
+    start_time = time.time()  # Засекаем время начала
 
-    ensure_stats_file(STATS_EVAL_FILE)
-
-    df = pd.read_csv(STATS_EVAL_FILE) if os.path.exists(STATS_EVAL_FILE) else pd.DataFrame(columns=['url','path','method','response','rating'])
-    updated_df = pd.concat([df, new_row], ignore_index=True)
-    updated_df.to_csv(STATS_EVAL_FILE, index=False)
-
-    # Отображаем виджет фидбэка
-    st.write("Пожалуйста, оцените ответ:")
-    feedback_widget(
-        df=updated_df,
-        on_like=like_feedback,
-        on_dislike=dislike_feedback,
-        key_prefix="response_feedback"
-    )
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(like_label):
+            response_time_ms = (time.time() - start_time) * 1000  # Время ответа в мс
+            log_to_mlflow(
+                url=url,
+                path=path,
+                method=method,
+                response=response,
+                rating="like",
+                response_time_ms=response_time_ms,
+                model_params=model_params,
+                user_email=user_email
+            )
+            st.success("Спасибо за ваш отзыв!")
+    with col2:
+        if st.button(dislike_label):
+            response_time_ms = (time.time() - start_time) * 1000  # Время ответа в мс
+            log_to_mlflow(
+                url=url,
+                path=path,
+                method=method,
+                response=response,
+                rating="dislike",
+                response_time_ms=response_time_ms,
+                model_params=model_params,
+                user_email=user_email
+            )
+            st.success("Спасибо за ваш отзыв!")
 
 
 def add_comment_to_issue(url: str, 

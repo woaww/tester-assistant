@@ -19,3 +19,4 @@ testit-api-client==7.0.1.post540
 tenacity==9.1.2
 asyncio==4.0.0
 httpx==0.28.1
+mlflow==3.5.1

@@ -55,8 +55,8 @@ class StepModel(BaseModel):
     action: str
     expected: Optional[str] = None
 
-class TagModel(BaseModel):
-    name: str
+# class TagModel(BaseModel):
+#     name: str
 
 class TestCaseCreateModel(BaseModel):
     project_id: str = UtilitsParsing.PROJECT_ID
@@ -69,7 +69,7 @@ class TestCaseCreateModel(BaseModel):
     priority: str = "Medium"
     state: str = "NeedsWork"
     duration: int = 60
-    tags: List[TagModel] = Field(default_factory=lambda: [TagModel(name="ai-assistant")])
+    # tags: List[TagModel] = Field(default_factory=lambda: [TagModel(name="ai-assistant")])
     links: List[dict] = []
     attributes: dict = {}
 

@@ -70,7 +70,7 @@ class UtilitsParsing:
 #TODO:вынести паттерны в отдельный класс
 
 class DefaultValuesLLM:
-    DEF_TEMPERATURE: float = 0.15
+    DEF_TEMPERATURE: float = 0.1
     DEF_MAX_NEW_TOKENS: int = 2500
     DEF_REPETITION_PENALTY: float = 1.2
     DEF_FREQUENCY_PENALTY: float = 0.9
@@ -153,7 +153,7 @@ APP_SIDE_PANEL_PARAMS = {
         ),
         "select": "Задать температуру LLM",
         "options": {
-            "start": 0.0,
+            "start": 0.000000001,
             "stop": 1.0,
             "step": 0.05,
             "decimals": 2

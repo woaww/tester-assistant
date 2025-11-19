@@ -3,14 +3,20 @@ import re
 import requests
 from typing import List, Optional, Tuple
 from testit_api_client import ApiClient, ApiException
+# from testit_api_client import ApiClient, ApiException
+# from testit_api_client.api.sections_api import SectionsApi
 from testit_api_client.api import work_items_api, sections_api
-from testit_api_client.model.work_item_entity_types import WorkItemEntityTypes
-from testit_api_client.model.work_item_states import WorkItemStates
-from testit_api_client.model.work_item_priority_model import WorkItemPriorityModel
-from testit_api_client.model.create_work_item_request import CreateWorkItemRequest
+from testit_api_client.model.work_item_entity_type_api_model import WorkItemEntityTypeApiModel
+from testit_api_client.model.tag_model import TagModel
+from testit_api_client.model.work_item_state_api_model import WorkItemStateApiModel
+from testit_api_client.model.work_item_priority_api_model import WorkItemPriorityApiModel
+# from testit_api_client.model.create_work_item_api_model import CreateWorkItemApiModel
+from testit_api_client.model.work_item_api_result import WorkItemApiResult
+from testit_api_client.model.api_v2_work_items_post_request import ApiV2WorkItemsPostRequest
 from testit_api_client.model.create_section_request import CreateSectionRequest
+from testit_api_client.api import project_sections_api
 from testit_api_client.configuration import Configuration
-
+from testit_api_client.api.projects_api import ProjectsApi
 from .models import (TestCaseCreateModel, SectionCreateModel, 
                      ProjectSearchResponse, StepModel)
 from .logger import log_function_call, LOGGER
@@ -53,25 +59,25 @@ class TestItClient:
                 # Используем expected_result как описание
                 description = case_data.expected_result or ""
 
-                payload = CreateWorkItemRequest(
-                    entity_type_name=WorkItemEntityTypes("TestCases"),
+                payload = ApiV2WorkItemsPostRequest( #CreateWorkItemApiModel
+                    entity_type_name=WorkItemEntityTypeApiModel("TestCases"),
                     project_id=case_data.project_id,
                     section_id=case_data.section_id,
                     name=case_data.name,
-                    priority=WorkItemPriorityModel(case_data.priority),
-                    state=WorkItemStates(case_data.state),
+                    priority=WorkItemPriorityApiModel(case_data.priority),
+                    state=WorkItemStateApiModel(case_data.state),
                     steps=steps_payload,
                     precondition_steps=precondition_steps_payload,
                     postcondition_steps=case_data.postcondition_steps,
-                    description=description,
-                    duration=case_data.duration if case_data.duration is not None else 60,
+                    description=description, 
+                    duration=case_data.duration if case_data.duration is not None else 60, 
                     attributes=case_data.attributes or {},
-                    tags=case_data.tags or [],
-                    links=case_data.links or []
+                    tags=[TagModel(name="ai-assistant")], 
+                    links=case_data.links or [] 
                 )
 
-                response = api.create_work_item(
-                    create_work_item_request=payload)
+                response = api.api_v2_work_items_post(
+                    api_v2_work_items_post_request=payload)  #create_work_item_request
                 return response.global_id
 
         except ApiException as e:
@@ -239,3 +245,73 @@ class TestItClient:
             cases.append(test_case_model)
 
         return cases
+    
+    def get_section_id_by_name(self, section_name: str):
+        """
+        Находит ID секции по её названию.
+        :param project_id: ID проекта
+        :param section_name: Название секции (чувствительно к регистру)
+        :return: ID секции или None
+        """
+        try:
+            with ApiClient(
+                self.configuration,
+                header_name='Authorization',
+                header_value='PrivateToken ' + self.token
+            ) as api_client:
+                # Используем Sections API
+
+                sections_api = project_sections_api.ProjectSectionsApi(api_client)
+                # sections_api = SectionsApi(api_client)
+
+                # Получаем все секции проекта
+                response = sections_api.get_sections_by_project_id(UtilitsParsing.PROJECT_ID)
+
+                # Рекурсивная функция поиска
+                def find_section(sections):
+                    for section in sections:
+                        if section.name == section_name:
+                            return section.id
+                        # Рекурсия по подсекциям
+                        if hasattr(section, "sub_sections") and section.sub_sections:
+                            result = find_section(section.sub_sections)
+                            if result:
+                                return result
+                    return None
+
+                return find_section(response)
+
+        except Exception as e:
+            LOGGER.error(f"Error fetching section ID for '{section_name}': {e}")
+            raise
+
+    def get_project_id_by_name(self, project_name: str) -> Optional[str]:
+        """
+        Находит ID проекта по его названию.
+        :param project_name: Название проекта (чувствительно к регистру)
+        :return: ID проекта или None
+        """
+        try:
+            with ApiClient(
+                self.configuration,
+                header_name='Authorization',
+                header_value='PrivateToken ' + self.token
+            ) as api_client:
+                
+                projects_api = ProjectsApi(api_client)
+
+                # Получаем список всех проектов
+                response = projects_api.get_all_projects()
+
+                # Ищем проект по имени
+                for project in response:
+                    if project.name == project_name:
+                        return project.id
+
+                # Если не нашли
+                LOGGER.warning(f"Project with name '{project_name}' not found.")
+                return None
+
+        except Exception as e:
+            LOGGER.error(f"Error fetching project ID for '{project_name}': {e}")
+            raise

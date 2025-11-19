@@ -71,7 +71,7 @@ def is_jira_url(text_old: str) -> str:
             jc = JiraClient()
             ticket_id = jc.extract_ticket_id(text)
             description = jc.get_issue_description(ticket_id)
-            return {"description": description}
+            return  description
         except Exception as e:
             st.error(f"Ошибка при загрузке сценария Jira")
 
