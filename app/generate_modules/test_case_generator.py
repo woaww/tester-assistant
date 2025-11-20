@@ -19,17 +19,19 @@ def post_process_response(response: str) -> str:
     cleaned_text = re.sub(r'</?think>', '', cleaned_text)  # Удаление одиночных тегов <think> или </think>
 
     # Удаление тегов </no> и любых других <no> тегов
-    cleaned_text = re.sub(r'</?no>', '', cleaned_text)
+    cleaned_text = re.sub(r'</no>', '', cleaned_text)
+    cleaned_text = re.sub(r'<no>', '', cleaned_text)
 
     # Удаление специальных маркеров вроде <|End of user message|>
-    cleaned_text = re.sub(r'<\|[^|]*\|>', '', cleaned_text)
+    # cleaned_text = re.sub(r'<\|[^|]*\|>', '', cleaned_text)
+    cleaned_text = re.sub('<|End of user message|>', '', cleaned_text)
 
     # Удаление упоминаний "Assistant:" и подобных
     cleaned_text = re.sub(r'^(Assistant\s*:|Bot\s*:)\s*', '', cleaned_text, flags=re.IGNORECASE)
     cleaned_text = re.sub(r'\b(Assistant|Bot):?', '', cleaned_text, flags=re.IGNORECASE)
 
     # Удаление множественных пробелов и переносов строк, нормализация пробелов
-    cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
+    # cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
 
     return cleaned_text
 
