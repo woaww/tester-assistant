@@ -7,10 +7,14 @@ LIKE = "like"
 DISLIKE = "dislike"
 STATS_EVAL_FILE = os.path.join(os.getcwd(),"data","tester-assistant-stats","stats_eval.csv") 
 
-LLM_URL = os.getenv("LLM_URL")
+LLM_URL = 'http://d-gpgpu-a100-01.ct.ahml1.ru:8335/v1' #os.getenv("LLM_URL")
 WIKI_TOKEN = os.getenv("WIKI_TOKEN")
 JIRA_TOKEN = os.getenv("JIRA_TOKEN")
 TESTIT_TOKEN =  os.getenv("TESTIT_TOKEN")
+
+
+
+# <|End of user message|> </think> </no> </no>\n\nAssistant:<think>\n\n</think>
 
 
 PART_PAGE_PREDUSLOVIE = "Предусловия"
@@ -26,11 +30,11 @@ SELECTOR_STR_SCENARIO = f'th:-soup-contains("{PART_PAGE_SCENARIO}") + td'
 SELECTOR_STR_POSTUSLOVIE = f'th:-soup-contains("{PART_PAGE_POSTUSLOVIE}") + td'
 
 LANGUAGE_MAPPING = {
-    "Python": {
+    "Python + Requests": {
         "extension": "py",
         "mime": "text/x-python"
     },
-    "Java": {
+    "Java + RestAssured": {
         "extension": "java",
         "mime": "text/x-java-source"
     }

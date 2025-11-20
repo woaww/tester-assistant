@@ -191,7 +191,7 @@ def main_page(model_params_config):
 
                     # --- перевод на другие языки ---
                         language = st.selectbox("Выберите язык для преобразования тест-кейсов",
-                                                ["Java + RestAssured", "Python + Requests (pytest)"])
+                                                ["Java + RestAssured", "Python + Requests"])
                         upd_kwargs_for_api = ApiKwargs(spec_url, "translate_test_cases", 
                                                        spec_path, spec_method,
                                                        False,language)
