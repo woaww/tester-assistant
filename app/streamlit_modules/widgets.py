@@ -22,12 +22,13 @@ def button_api_get_test_case(kwargs: ApiKwargs) -> None:
         case "api":
             try:
                 parser = SpecificationParser(kwargs.spec_url)
+                url_ref = parser.get_endpoint_url(kwargs.spec_path)
                 if parser.has_endpoint(kwargs.spec_path, kwargs.spec_method):
                     spec_description = parser.get_endpoint_spec(kwargs.spec_path, kwargs.spec_method)
                     with st.spinner(AppSettings.SPINNER):
                         response = generate_api_test_cases(
                             description=spec_description,
-                            url_ref=kwargs.spec_url,
+                            url_ref=url_ref,#kwargs.spec_url,
                             spec_method=kwargs.spec_method,
                             model_params=st.session_state.model_params
                         )
@@ -54,7 +55,7 @@ def button_api_get_test_case(kwargs: ApiKwargs) -> None:
                 with st.spinner(f"Преобразование тестовых кейсов на язык {kwargs.language}"):
                     response = generate_api_test_cases(
                         description="\n".join(api_cases),
-                        url_ref=kwargs.spec_url,
+                        url_ref='',#kwargs.spec_url,
                         model_params=st.session_state.model_params,
                         language=kwargs.language
                     )

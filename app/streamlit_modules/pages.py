@@ -170,8 +170,8 @@ def main_page(model_params_config):
 
                         # Восстанавливаем kwargs, используя сохранённый текст
                         if 'kwargs_for_api' in st.session_state:
-                            kwargs_for_api_new = st.session_state.kwargs_for_api
-                            kwargs_for_api_new = kwargs_for_api_new.model_copy(update={"new_cases": True})
+                            kwargs_for_api_orig = st.session_state.kwargs_for_api
+                            kwargs_for_api_new = kwargs_for_api_orig.model_copy(update={"new_cases": True})
                         # Кнопка для генерации дополнительных тест-кейсов
                         # kwargs_for_api_new = ApiKwargs(spec_url, "api", spec_path, spec_method, new_cases=True)
                             on_click_with_args_api_new = partial(button_api_get_test_case, kwargs_for_api_new)
@@ -189,12 +189,19 @@ def main_page(model_params_config):
                             user_email=st.session_state.user_email
                         )
 
-                    # --- перевод на другие языки ---
+                        # --- перевод на другие языки ---
                         language = st.selectbox("Выберите язык для преобразования тест-кейсов",
                                                 ["Java + RestAssured", "Python + Requests"])
-                        upd_kwargs_for_api = ApiKwargs(spec_url, "translate_test_cases", 
-                                                       spec_path, spec_method,
-                                                       False,language)
+                        upd_kwargs_for_api = st.session_state.kwargs_for_api.model_copy(
+                            update={
+                                "type": "translate_test_cases",
+                                "new_cases": False,
+                                "language": language
+                            }
+                        )
+                        # upd_kwargs_for_api = ApiKwargs(spec_url, "translate_test_cases", 
+                        #                                spec_path, spec_method,
+                        #                                False, language)
                         # upd_kwargs_for_api = kwargs_for_api.model_copy(update={"type": "translate_test_cases",
                         #                                             "new_cases":False, 
                         #                                             "language": language})
