@@ -59,7 +59,7 @@ class StepModel(BaseModel):
 #     name: str
 
 class TestCaseCreateModel(BaseModel):
-    project_id: str = UtilitsParsing.PROJECT_ID
+    project_id: str #= UtilitsParsing.PROJECT_ID
     section_id: str
     name: str
     steps: List[Dict[str, Optional[str]]] = []
