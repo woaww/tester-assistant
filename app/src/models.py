@@ -42,8 +42,8 @@ class ModelParamsConfig(BaseModel):
     frequency_penalty: AppSettingsParamConfig
 
 class SectionCreateModel(BaseModel):
-    project_id: str = UtilitsParsing.PROJECT_ID
-    parent_id: str = UtilitsParsing.SECTION_TESTIT
+    project_id: str #= UtilitsParsing.PROJECT_ID
+    parent_id: str #= UtilitsParsing.SECTION_TESTIT
     name: str = "TestIt"
 
 class ProjectSearchResponse(BaseModel):
