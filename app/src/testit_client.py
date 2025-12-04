@@ -246,7 +246,7 @@ class TestItClient:
 
         return cases
     
-    def get_section_id_by_name(self, section_name: str):
+    def get_section_id_by_name(self, section_name: str, project_id: str = UtilitsParsing.PROJECT_ID):
         """
         Находит ID секции по её названию.
         :param project_id: ID проекта
@@ -265,7 +265,7 @@ class TestItClient:
                 # sections_api = SectionsApi(api_client)
 
                 # Получаем все секции проекта
-                response = sections_api.get_sections_by_project_id(UtilitsParsing.PROJECT_ID)
+                response = sections_api.get_sections_by_project_id(project_id)
 
                 # Рекурсивная функция поиска
                 def find_section(sections):

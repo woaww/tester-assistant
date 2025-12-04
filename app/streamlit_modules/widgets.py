@@ -175,8 +175,10 @@ def send_to_testit(project_name: str,
 
     try:
         client = TestItClient()
-        new_section = client.create_section(SectionCreateModel(project_id=client.get_project_id_by_name(project_name),
-                                                               parent_id=client.get_section_id_by_name(section_name),
+        project_id=client.get_project_id_by_name(project_name)
+        parent_id=client.get_section_id_by_name(section_name,project_id)
+        new_section = client.create_section(SectionCreateModel(project_id=project_id,
+                                                               parent_id=parent_id,
                                                                name=new_section_name.strip()))
         st.success(f"✅ Секция '{new_section_name.strip()}' создана")
 
