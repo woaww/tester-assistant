@@ -246,7 +246,7 @@ class TestItClient:
 
         return cases
     
-    def get_section_id_by_name(self, section_name: str, project_id: str = UtilitsParsing.PROJECT_ID):
+    def get_section_id_by_name(self, section_name: str, project_id):
         """
         Находит ID секции по её названию.
         :param project_id: ID проекта
