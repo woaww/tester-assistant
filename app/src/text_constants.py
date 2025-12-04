@@ -56,8 +56,8 @@ class UtilitsParsing:
     URL_WIKI: str = "https://wiki.domrf.ru"
     URL_JIRA: str = "https://jira.domrf.ru"
     URL_TESTIT: str = 'https://testit.domrf.ru'
-    SECTION_TESTIT: str = "4d3811ab-7b03-4b76-9685-68c69d973e68"
-    PROJECT_ID: str = "94983664-636a-4f9c-90e7-07f768df7979"
+    # SECTION_TESTIT: str = "4d3811ab-7b03-4b76-9685-68c69d973e68"
+    # PROJECT_ID: str = "94983664-636a-4f9c-90e7-07f768df7979"
     #Используется для извлечения ID страницы из URL
     PATTERN_URL_ID: str = r'pageId=(\d+)'
     NOT_HEADERS_TIM = "ТИМ"

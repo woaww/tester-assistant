@@ -158,8 +158,10 @@ def send_to_testit(project_name: str,
         str(case).replace(Separatiors.sep_cases, '') for case in test_cases if case.strip()
     )
 
+    client = TestItClient()
+    
     try:
-        parsed_cases = TestItClient().parse_case(full_test_cases)
+        parsed_cases = client.parse_case(full_test_cases)
         total_cases = len(parsed_cases)
 
         if total_cases == 0:
@@ -174,7 +176,7 @@ def send_to_testit(project_name: str,
     st.info(f"🚀 Начинаем загрузку {total_cases} тест-кейсов в TestIt...")
 
     try:
-        client = TestItClient()
+        # client = TestItClient()
         project_id=client.get_project_id_by_name(project_name)
         parent_id=client.get_section_id_by_name(section_name,project_id)
         new_section = client.create_section(SectionCreateModel(project_id=project_id,
