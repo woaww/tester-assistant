@@ -192,9 +192,11 @@ def send_to_testit(project_name: str,
 
         for i, case in enumerate(parsed_cases):
             try:
-                case.project_id = client.get_project_id_by_name(project_name)#UtilitsParsing.PROJECT_ID
-                case.section_id = new_section
-                client.create_testcase(case)
+                # case.project_id = project_id#UtilitsParsing.PROJECT_ID
+                # case.section_id = new_section
+                client.create_testcase(case, 
+                                       project_id=project_id, 
+                                       section_id=new_section)
                 success_count += 1
 
             except Exception as e:
