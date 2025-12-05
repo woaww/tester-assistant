@@ -159,7 +159,7 @@ def send_to_testit(project_name: str,
     )
 
     client = TestItClient()
-    
+
     try:
         parsed_cases = client.parse_case(full_test_cases)
         total_cases = len(parsed_cases)
@@ -184,38 +184,38 @@ def send_to_testit(project_name: str,
                                                                name=new_section_name.strip()))
         st.success(f"✅ Секция '{new_section_name.strip()}' создана")
 
+            # Загрузка тест-кейсов с прогрессом
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        success_count = 0
+        failed_cases = []
+
+        for i, case in enumerate(parsed_cases):
+            try:
+                case.project_id = client.get_project_id_by_name(project_name)#UtilitsParsing.PROJECT_ID
+                case.section_id = new_section
+                client.create_testcase(case)
+                success_count += 1
+
+            except Exception as e:
+                failed_cases.append(f"`{case.name}`: {e}")
+
+            progress_bar.progress((i + 1) / total_cases)
+
+        status_text.text("✅ Загрузка завершена")
+        progress_bar.empty()
+
+        if failed_cases:
+            st.warning(f"✅ Успешно: {success_count}/{total_cases}")
+            with st.expander("Показать ошибки"):
+                for msg in failed_cases:
+                    st.markdown(f"- {msg}")
+        else:
+            st.success(f"✅ Все {total_cases} тест-кейсов успешно загружены в TestIt!")
+
     except Exception as e:
         st.error(f"❌ Ошибка при создании секции: {e}")
         return
-
-    # Загрузка тест-кейсов с прогрессом
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    success_count = 0
-    failed_cases = []
-
-    for i, case in enumerate(parsed_cases):
-        try:
-            case.project_id = project_id#UtilitsParsing.PROJECT_ID
-            case.section_id = new_section
-            client.create_testcase(case)
-            success_count += 1
-
-        except Exception as e:
-            failed_cases.append(f"`{case.name}`: {e}")
-
-        progress_bar.progress((i + 1) / total_cases)
-
-    status_text.text("✅ Загрузка завершена")
-    progress_bar.empty()
-
-    if failed_cases:
-        st.warning(f"✅ Успешно: {success_count}/{total_cases}")
-        with st.expander("Показать ошибки"):
-            for msg in failed_cases:
-                st.markdown(f"- {msg}")
-    else:
-        st.success(f"✅ Все {total_cases} тест-кейсов успешно загружены в TestIt!")
 
 
 def feedback_widget(
