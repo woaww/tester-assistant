@@ -31,7 +31,9 @@ class TestItClient:
         self.base_url = UtilitsParsing.URL_TESTIT
 
     @log_function_call(allowed_kwargs=["project_id", "section_id", "name", "steps"])
-    def create_testcase(self, case_data: TestCaseCreateModel) -> str:
+    def create_testcase(self, case_data: TestCaseCreateModel, 
+                        project_id: str, 
+                        section_id: str) -> str:
         """
         Создаёт тест-кейс с шагами, предусловиями и описанием.
         :param case_data: модель с данными
@@ -61,8 +63,8 @@ class TestItClient:
 
                 payload = ApiV2WorkItemsPostRequest( #CreateWorkItemApiModel
                     entity_type_name=WorkItemEntityTypeApiModel("TestCases"),
-                    project_id=case_data.project_id,
-                    section_id=case_data.section_id,
+                    project_id=project_id, #case_data.project_id,
+                    section_id=section_id,#case_data.section_id,
                     name=case_data.name,
                     priority=WorkItemPriorityApiModel(case_data.priority),
                     state=WorkItemStateApiModel(case_data.state),
@@ -246,7 +248,7 @@ class TestItClient:
 
         return cases
     
-    def get_section_id_by_name(self, section_name: str):
+    def get_section_id_by_name(self, section_name: str, project_id):
         """
         Находит ID секции по её названию.
         :param project_id: ID проекта
@@ -265,7 +267,7 @@ class TestItClient:
                 # sections_api = SectionsApi(api_client)
 
                 # Получаем все секции проекта
-                response = sections_api.get_sections_by_project_id(UtilitsParsing.PROJECT_ID)
+                response = sections_api.get_sections_by_project_id(project_id)
 
                 # Рекурсивная функция поиска
                 def find_section(sections):

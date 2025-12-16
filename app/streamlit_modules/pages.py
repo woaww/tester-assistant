@@ -118,8 +118,8 @@ def main_page(model_params_config):
                         ):
                                 st.success("Комментарий отправлен!")
 
-                        project_name = st.text_input("Введите название проекта для TestIt'а", "ЦТ. АТ. Тест")
-                        section_name = st.text_input("Введите название секции для TestIt'а", "Ангелина Тесты")
+                        project_name = st.text_input("Введите название проекта для TestIt'а")
+                        section_name = st.text_input("Введите название секции для TestIt'а")
                         new_section_name = st.text_input("Введите название новой секции для TestIt'а")
                         st.button(
                             "Отправить кейсы в TestIt",
@@ -264,8 +264,8 @@ def main_page(model_params_config):
                                 key="btn_generate_more_cases_jira")
                     
                             # === Отправить в TestIt, источник и фидбэк ==
-                            project_name = st.text_input("Введите название проекта для TestIt'а", "ЦТ. АТ. Тест")
-                            section_name = st.text_input("Введите название секции для TestIt'а", "Ангелина Тесты")
+                            project_name = st.text_input("Введите название проекта для TestIt'а",)
+                            section_name = st.text_input("Введите название секции для TestIt'а",)
                             new_section_name = st.text_input("Введите название новой секции для TestIt'а")
                             st.button(
                                 "Отправить кейсы в TestIt",

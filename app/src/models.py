@@ -42,8 +42,8 @@ class ModelParamsConfig(BaseModel):
     frequency_penalty: AppSettingsParamConfig
 
 class SectionCreateModel(BaseModel):
-    project_id: str = UtilitsParsing.PROJECT_ID
-    parent_id: str = UtilitsParsing.SECTION_TESTIT
+    project_id: str #= UtilitsParsing.PROJECT_ID
+    parent_id: str #= UtilitsParsing.SECTION_TESTIT
     name: str = "TestIt"
 
 class ProjectSearchResponse(BaseModel):
@@ -59,7 +59,7 @@ class StepModel(BaseModel):
 #     name: str
 
 class TestCaseCreateModel(BaseModel):
-    project_id: str = UtilitsParsing.PROJECT_ID
+    project_id: str #= UtilitsParsing.PROJECT_ID
     section_id: str
     name: str
     steps: List[Dict[str, Optional[str]]] = []
