@@ -6,11 +6,12 @@ import pandas as pd
 import re
 from src.text_constants import (GeneralValuesLLM, AppSettings,
                                 Keys, GeneralUtilitsConsts)
+from src.exceptions import LLMInvalidResponseError
 from src.logger import log_function_call
 import httpx
 import asyncio
 import json
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import openai
 
 
@@ -131,8 +132,12 @@ def split_api_test_cases(data):
 #         loop.close()
 
 
-@retry(wait=wait_exponential(multiplier=1, max=30),
-       stop=stop_after_attempt(GeneralUtilitsConsts.RETRY_TRIES))
+@retry(
+    wait=wait_exponential(multiplier=1, max=30),
+    stop=stop_after_attempt(GeneralUtilitsConsts.RETRY_TRIES),
+    retry=retry_if_exception_type(LLMInvalidResponseError),
+    reraise=True,
+)
 async def generate_response_async(
     prompt_input: str,
     model_params: dict = None,
@@ -174,9 +179,18 @@ async def generate_response_async(
                 "top_k": GeneralValuesLLM.GEN_RESPONSE_TOP_K,
             },
             # echo=False,
-            stream=False
+            stream=False,
+            stop=[
+                "</"
+            ]
         )
-        answer = response.choices[0].text.strip()
+        answer = response.choices[0].text or ""
+        answer = answer.strip()
+
+        answer = (response.choices[0].text or "").strip()
+
+        if answer == "</":
+            raise LLMInvalidResponseError("LLM вернул только стоп-токен `</`, требуется перегенерация.")
 
         if not answer:
             raise ValueError(AppSettings.USER_ERROR_MSG.format(AppSettings.WIKI_TEMPLATE))

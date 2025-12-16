@@ -1,5 +1,6 @@
 import streamlit as st
 from functools import partial
+import pandas as pd
 from streamlit_modules.session_manager import (login_callback, get_api_cases,logout_callback)
 from streamlit_modules.settings import (render_param_slider, is_wiki_url,
                                         is_jira_url, reset_params_to_default)
@@ -7,6 +8,13 @@ from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS
 from src.models import ModelParamsConfig, ApiKwargs, WikiJiraKwargs
 from streamlit_modules.widgets import *
 from src.utils import  split_api_test_cases
+from src.el_attr_workflow import (
+    run_el_attr_workflow,
+    DEFAULT_URL,
+    AVAILABLE_SELECTORS,
+    DEFAULT_SELECTORS,
+)
+
 
 def auth_page():
     st.title("Авторизация")
@@ -288,3 +296,207 @@ def main_page(model_params_config):
                                     model_params=st.session_state.model_params,
                                     user_email=st.session_state.user_email
                                 )
+
+                case AppSettings.TYPE_OPTION_EL_ATTR:
+                    st.subheader("Генератор XPath‑локаторов")
+
+                    target_url = st.text_input(
+                        "URL страницы",
+                        value=DEFAULT_URL,
+                    )
+
+                    mode = st.radio(
+                        "Режим",
+                        options=("По тегам", "По описанию"),
+                        horizontal=True,
+                        key="el_attr_mode",
+                    )
+
+                    generate_selenide = st.checkbox(
+                        "Сгенерировать SelenideElement",
+                        value=False,
+                        help="Оставьте выключенным, если нужны только XPath и описания",
+                        key="el_attr_generate_selenide",
+                    )
+
+                    selected_selectors = []
+                    prompt_description = ""
+
+                    if mode == "По тегам":
+                        selected_selectors = st.multiselect(
+                            "Теги для анализа",
+                            options=AVAILABLE_SELECTORS,
+                            default=DEFAULT_SELECTORS,
+                            help="По умолчанию: button, input.",
+                            key="el_attr_selectors",
+                        )
+                    else:
+                        prompt_description = st.text_input(
+                            "Описание элемента (AI-поиск)",
+                            placeholder="Например: зелёная кнопка 'Войти' в правом верхнем углу",
+                            help="browser_use ищет один элемент по описанию и строит локатор",
+                            key="el_attr_prompt_desc",
+                        )
+
+                    st.markdown("---")
+
+                    def render_locator_panel(locators):
+                        """
+                        locators:
+                          - либо list[str] (старый формат),
+                          - либо list[dict] с полями 'xpath', 'exists', 'count', 'description' (новый формат).
+                        """
+                        st.markdown("**XPath‑локаторы**")
+
+                        rows = []
+                        if locators:
+                            first = locators[0]
+                            if isinstance(first, dict):
+                                for item in locators:
+                                    exists = item.get("exists")
+                                    count = item.get("count")
+                                    description = item.get("description", "")
+                                    selenide_element = item.get("selenide_element", "—")
+
+                                    if not exists:
+                                        status_icon = "❌"
+                                    else:
+                                        if isinstance(count, int) and count > 1:
+                                            status_icon = "⚠️"
+                                        else:
+                                            status_icon = "✅"
+
+                                    rows.append(
+                                        {
+                                            "XPath": item.get("xpath", ""),
+                                            "Описание": description if description else "—",
+                                            "Статус": status_icon,
+                                            "Кол-во элементов": count if count is not None else "?",
+                                            "SelenideElement": selenide_element,
+                                        }
+                                    )
+                            else:
+                                for xpath in locators:
+                                    rows.append(
+                                        {
+                                            "XPath": xpath,
+                                            "Описание": "—",
+                                            "Статус": "?",
+                                            "Кол-во элементов": "?",
+                                            "SelenideElement": "—",
+                                        }
+                                    )
+
+                        locator_output = "\n".join(row["XPath"] for row in rows) if rows else ""
+
+                        st.download_button(
+                            label="Скачать .txt",
+                            data=locator_output,
+                            file_name="xpath_locators.txt",
+                            mime="text/plain",
+                        )
+
+                        view_mode = st.radio(
+                            "Отображение",
+                            options=("Таблица", "Текст"),
+                            horizontal=True,
+                            key="locator_view_mode",
+                        )
+
+                        if view_mode == "Текст":
+                            text_output = []
+                            for row in rows:
+                                xpath = row["XPath"]
+                                description = row.get("Описание", "—")
+                                selenide_line = row.get("SelenideElement", "—")
+                                parts = [xpath]
+                                if description and description != "—":
+                                    parts.append(f"# {description}")
+                                text_output.append("  ".join(parts))
+                                if selenide_line and selenide_line != "—":
+                                    text_output.append(selenide_line)
+                            st.code("\n".join(text_output) if text_output else "—", language="text")
+                        else:
+                            locator_df = pd.DataFrame(rows or [{"XPath": "—", "Описание": "—", "Статус": "—", "Кол-во элементов": "—", "SelenideElement": "—"}])
+                            locator_df.index = locator_df.index + 1
+                            locator_df.index.name = "№"
+                            st.dataframe(
+                                locator_df,
+                                width="stretch",
+                            )
+
+                    if mode == "По тегам":
+                        if st.button("Собрать по тегам и сгенерировать локаторы"):
+                            with st.spinner("Собираем элементы и строим локаторы..."):
+                                try:
+                                    result = run_el_attr_workflow(
+                                        target_url,
+                                        selected_selectors or DEFAULT_SELECTORS,
+                                        generate_selenide=generate_selenide,
+                                    )
+                                    if isinstance(result, dict):
+                                        locators = result.get("locators") or []
+                                        selector_stats = result.get("selector_stats") or {}
+                                    else:
+                                        locators = result or []
+                                        selector_stats = {}
+
+                                    total_locators = len(locators)
+                                    valid_locators = sum(
+                                        1 for item in (locators or []) if isinstance(item, dict) and item.get("exists")
+                                    )
+                                    st.success("Готово.")
+                                    st.caption(
+                                        f"Локаторов: **{total_locators}**, валидных: **{valid_locators}**."
+                                    )
+
+                                    st.session_state["el_attr_locators"] = locators or []
+                                    st.session_state["el_attr_selector_stats"] = selector_stats or {}
+                                except Exception as e:
+                                    st.error(f"Ошибка при выполнении сценария: {e}")
+                    else:
+                        if st.button("Найти по описанию и сгенерировать локатор"):
+                            if not prompt_description:
+                                st.warning("Сначала введите описание элемента.")
+                            else:
+                                with st.spinner("Ищем элемент по описанию и строим локатор..."):
+                                    try:
+                                        result = run_el_attr_workflow(
+                                            target_url,
+                                            selectors=None,
+                                            prompt_description=prompt_description,
+                                            generate_selenide=generate_selenide,
+                                        )
+                                        if isinstance(result, dict):
+                                            locators = result.get("locators") or []
+                                            selector_stats = result.get("selector_stats") or {}
+                                        else:
+                                            locators = result or []
+                                            selector_stats = {}
+
+                                        total_locators = len(locators)
+                                        valid_locators = sum(
+                                            1 for item in (locators or []) if isinstance(item, dict) and item.get("exists")
+                                        )
+                                        st.success("Готово.")
+                                        st.caption(
+                                            f"Локаторов: **{total_locators}**, валидных: **{valid_locators}**."
+                                        )
+
+                                        st.session_state["el_attr_locators"] = locators or []
+                                        st.session_state["el_attr_selector_stats"] = selector_stats or {}
+                                    except Exception as e:
+                                        st.error(f"Ошибка при выполнении сценария: {e}")
+
+                    saved_locators = st.session_state.get("el_attr_locators")
+                    selector_stats = st.session_state.get("el_attr_selector_stats", {})
+
+                    if selector_stats:
+                        st.markdown("**Найденные элементы по выбранным селекторам:**")
+                        for sel, count in selector_stats.items():
+                            st.markdown(f"- `{sel}`: **{count}** элементов")
+
+                    if saved_locators:
+                        render_locator_panel(saved_locators)
+                    elif saved_locators == []:
+                        st.info("Локаторы не были сгенерированы.")

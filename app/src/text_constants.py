@@ -96,7 +96,8 @@ class AppSettings:
     TYPE_OPTION_WIKI = "Генерация тестового кейса из сценария задачи (Вики)"
     TYPE_OPTION_CURL = "Генерация тестовых кейсов API (CURL)"
     TYPE_OPTION_JIRA = "Генерация тестового кейса из сценария задачи (Jira)"
-    OPTIONS_LIST = [TYPE_OPTION_WIKI, TYPE_OPTION_CURL, TYPE_OPTION_JIRA]
+    TYPE_OPTION_EL_ATTR = "Генерация XPath-локаторов для веб-страницы"
+    OPTIONS_LIST = [TYPE_OPTION_WIKI, TYPE_OPTION_CURL, TYPE_OPTION_JIRA, TYPE_OPTION_EL_ATTR]
 
 class GeneralUtilitsConsts:
     #Тип кодировки - prompts
