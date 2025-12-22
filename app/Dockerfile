@@ -1,4 +1,4 @@
-FROM registry.ahml.ru/eisgs/docker-images/python:3.11-slim-buster
+FROM nexus.dev.domoy.ru/docker-remote/python:3.11-slim-bookworm
 
 # ARG PIP_INDEX_URL=https://nexus.ahml.ru/repository/pypi-proxy/simple/ 
 ARG PIP_INDEX_URL=https://nexus.dev.domoy.ru/repository/pip-remote-pypi/simple
@@ -7,7 +7,8 @@ WORKDIR /app
 
 
 RUN rm -rf /etc/apt/sources.list.d/* && \
-    echo 'deb https://nexus.dev.domoy.ru/repository/raw-remote-debian-archive/debian buster main contrib non-free' > /etc/apt/sources.list && \
+    echo 'deb https://nexus.dev.domoy.ru/repository/raw-remote-yandex/debian bookworm main contrib non-free' > /etc/apt/sources.list && \
+    echo 'Acquire::https::nexus.dev.domoy.ru::Verify-Peer "false";' > /etc/apt/apt.conf.d/99nexus-dev && \
     apt-get update && apt-get install -y --no-install-recommends \
         libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
         libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
