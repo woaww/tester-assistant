@@ -22,3 +22,6 @@ app/streamlit_modules/__pycache__/pages.cpython-312.pyc
 app/streamlit_modules/__pycache__/session_manager.cpython-312.pyc
 app/streamlit_modules/__pycache__/settings.cpython-312.pyc
 app/streamlit_modules/__pycache__/widgets.cpython-312.pyc
+.env
+app/Dockerfile.txt
+app/sfhon.ipynb

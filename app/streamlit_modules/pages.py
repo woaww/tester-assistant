@@ -482,6 +482,11 @@ def main_page(model_params_config):
                                         st.caption(
                                             f"Локаторов: **{total_locators}**, валидных: **{valid_locators}**."
                                         )
+                                        if total_locators == 0:
+                                            st.warning(
+                                                "Не удалось найти элемент по описанию и сгенерировать локатор. "
+                                                "Попробуйте ещё раз."
+                                            )
 
                                         st.session_state["el_attr_locators"] = locators or []
                                         st.session_state["el_attr_selector_stats"] = selector_stats or {}
@@ -499,4 +504,7 @@ def main_page(model_params_config):
                     if saved_locators:
                         render_locator_panel(saved_locators)
                     elif saved_locators == []:
-                        st.info("Локаторы не были сгенерированы.")
+                        st.warning(
+                            "Локаторы не были сгенерированы. "
+                            "Попробуйте ещё раз."
+                        )

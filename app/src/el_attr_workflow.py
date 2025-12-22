@@ -23,7 +23,7 @@ if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 
-BROWSER_HEADLESS = True
+BROWSER_HEADLESS = False
 BROWSER_DISABLE_SECURITY = True
 BROWSER_ARGS = [
     "--disable-gpu",
@@ -32,6 +32,10 @@ BROWSER_ARGS = [
     "--disable-background-timer-throttling",
     "--disable-backgrounding-occluded-windows",
     "--disable-renderer-backgrounding",
+    "--disable-software-rasterizer",
+    "--disable-extensions",
+    "--disable-setuid-sandbox",
+    "--disable-web-security",
 ]
 
 DEFAULT_URL = "https://portal.apps.k8s.dev.domoy.ru"
@@ -66,7 +70,7 @@ def create_llm(temperature: float = 0.7):
 
 async def _get_element_by_prompt_with_timeout(page, prompt: str, llm, timeout: float = 60.0):
     try:
-        await asyncio.sleep(10)
+        await asyncio.sleep(60)
         return await asyncio.wait_for(page.get_element_by_prompt(prompt, llm=llm), timeout=timeout)
     except asyncio.TimeoutError:
         raise TimeoutError(f"Не удалось найти элемент по описанию за {timeout} сек.")
@@ -269,7 +273,7 @@ async def main(
     browser_profile = build_browser_profile()
 
     last_error = None
-    RETRIES = 2
+    RETRIES = 3
 
     for attempt in range(RETRIES):
         browser_session = BrowserSession(browser_profile=browser_profile)
