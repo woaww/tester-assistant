@@ -31,6 +31,8 @@ COPY ms-playwright /ms-playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
+RUN chmod -R +x /ms-playwright/chromium-1105
+
 COPY ./app .
 
 RUN python -m pip install --upgrade pip && \
