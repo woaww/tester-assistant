@@ -88,6 +88,7 @@ def build_browser_profile() -> BrowserProfile:
         headless=BROWSER_HEADLESS,
         disable_security=BROWSER_DISABLE_SECURITY,
         args=BROWSER_ARGS,
+        extensions=[],
         wait_for_network_idle_page_load_time=5.0,
         maximum_wait_page_load_time=30.0,
         wait_between_actions=1.0,
