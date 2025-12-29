@@ -180,17 +180,17 @@ async def generate_response_async(
             },
             # echo=False,
             stream=False,
-            stop=[
-                "</"
-            ]
+            # stop=[
+            #     "</"
+            # ]
         )
         answer = response.choices[0].text or ""
         answer = answer.strip()
 
         answer = (response.choices[0].text or "").strip()
 
-        if answer == "</":
-            raise LLMInvalidResponseError("LLM вернул только стоп-токен `</`, требуется перегенерация.")
+        # if answer == "</":
+        #     raise LLMInvalidResponseError("LLM вернул только стоп-токен `</`, требуется перегенерация.")
 
         if not answer:
             raise ValueError(AppSettings.USER_ERROR_MSG.format(AppSettings.WIKI_TEMPLATE))

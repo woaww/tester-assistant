@@ -25,3 +25,4 @@ app/streamlit_modules/__pycache__/widgets.cpython-312.pyc
 .env
 app/Dockerfile.txt
 app/sfhon.ipynb
+Генератор локаторов.md

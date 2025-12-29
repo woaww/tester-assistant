@@ -9,6 +9,7 @@ from browser_use import BrowserSession, BrowserProfile, ChatOpenAI
 from generate_modules.xpath_generator import (
     generate_xpath_locators_structured,
     generate_selenide_elements_structured,
+    fix_invalid_xpath_locators,
 )
 from src.element_extraction import extract_element_data
 from src.locator_utils import (
@@ -16,6 +17,7 @@ from src.locator_utils import (
     sanitize_selectors,
     extract_locators_from_response,
     validate_locators_on_page,
+    filter_invalid_locators,
 )
 
 
@@ -39,7 +41,8 @@ BROWSER_ARGS = [
 ]
 
 DEFAULT_URL = "https://portal.apps.k8s.dev.domoy.ru"
-MAX_ELEMENTS_PER_CHUNK = 30
+MAX_ELEMENTS_PER_CHUNK = 10
+MAX_ELEMENTS_PER_FIX_CHUNK = 10  # Меньший размер чанка для исправления локаторов
 AVAILABLE_SELECTORS = [
     "a", "abbr", "address", "article", "aside", "audio", "b", "bdi", "bdo", "blockquote",
     "body", "br", "button", "canvas", "caption", "cite", "code", "col", "colgroup", "data",
@@ -53,7 +56,7 @@ AVAILABLE_SELECTORS = [
     "th", "thead", "time", "tr", "track", "u", "ul", "var", "video", "wbr",
 ]
 
-DEFAULT_SELECTORS = ["button"]
+DEFAULT_SELECTORS = ["span"]
 
 
 load_dotenv()
@@ -150,41 +153,117 @@ def save_elements_snapshot(elements_data: dict) -> None:
 
 async def build_locators(
     elements_data: dict,
+    progress_callback=None,
 ) -> list[dict]:
 
     collected_locators: list[dict] = []
+    current_index = 0
+    
+
+    total_chunks = 0
+    for selector, elements in elements_data.items():
+        chunks = list(chunk_list(elements, MAX_ELEMENTS_PER_CHUNK))
+        total_chunks += len(chunks)
+    
+    processed_chunks = 0
 
     for selector, elements in elements_data.items():
         chunks = list(chunk_list(elements, MAX_ELEMENTS_PER_CHUNK))
         for idx, chunk in enumerate(chunks, start=1):
-            data_chunk = {selector: chunk}
+            data_chunk = chunk
             try:
                 print(f"\n=== Генерация XPath для '{selector}' (часть {idx}/{len(chunks)}) ===\n")
-                xpath_response = await asyncio.wait_for(
-                    generate_xpath_locators_structured(data_chunk),
-                    timeout=240.0,
-                )
+                
+                # Обновляем прогресс
+                if progress_callback and total_chunks > 0:
+                    progress = 0.5 + (processed_chunks / total_chunks) * 0.2
+                    progress_callback(progress, f"Генерация XPath для '{selector}' (часть {idx}/{len(chunks)})")
+                
+                xpath_response = await generate_xpath_locators_structured(data_chunk)
                 print(xpath_response)
-
-                # with open("xpath_response.txt", "w", encoding="utf-8") as f:
-                #     if isinstance(xpath_response, str):
-                #         f.write(xpath_response)
-                #     else:
-                #         json.dump(xpath_response, f, ensure_ascii=False, indent=2)
 
                 if isinstance(xpath_response, list):
                     locators = xpath_response
                 else:
                     locators = extract_locators_from_response(xpath_response)
+
+                for i, locator in enumerate(locators):
+                    locator['original_index'] = current_index + i
+                
                 collected_locators.extend(locators)
+                current_index += len(locators)
+                
             except Exception as e:
                 print(f"\nОшибка при генерации XPath для '{selector}' части {idx}: {e}")
+                current_index += len(data_chunk)
+            
+            processed_chunks += 1
 
     return collected_locators
 
 
+async def fix_locators(
+    invalid_locators: list[dict],
+    elements_data: dict,
+    progress_callback=None,
+) -> list[dict]:
+    if not invalid_locators:
+        return []
+    
+    print(f"\n=== Исправление {len(invalid_locators)} некорректных локаторов ===\n")
+    
+    flat_elements_data = []
+    for selector, elements in elements_data.items():
+        flat_elements_data.extend(elements)
+
+    elements_for_fixing = []
+    
+    for invalid_loc in invalid_locators:
+        original_index = invalid_loc.get('original_index')
+        
+        if original_index is not None and 0 <= original_index < len(flat_elements_data):
+            elements_for_fixing.append(flat_elements_data[original_index])
+            print(f"Локатор сопоставлен с элементом по индексу {original_index}")
+        else:
+            elements_for_fixing.append({})
+            print(f"Не удалось найти элемент для локатора (индекс: {original_index}), используется пустой элемент")
+
+    invalid_chunks = list(chunk_list(invalid_locators, MAX_ELEMENTS_PER_FIX_CHUNK))
+    elements_chunks = list(chunk_list(elements_for_fixing, MAX_ELEMENTS_PER_FIX_CHUNK))
+    
+    all_fixed_locators = []
+    
+    try:
+        for idx, (invalid_chunk, elements_chunk) in enumerate(zip(invalid_chunks, elements_chunks), start=1):
+            print(f"Исправление части {idx}/{len(invalid_chunks)} ({len(invalid_chunk)} локаторов)")
+            
+            if progress_callback:
+                progress = 0.95 + (idx / len(invalid_chunks)) * 0.03 
+                progress_callback(progress, f"Исправление локаторов (часть {idx}/{len(invalid_chunks)})")
+            
+            fixed_chunk = await fix_invalid_xpath_locators(
+                invalid_locators=invalid_chunk,
+                elements_data=elements_chunk
+            )
+            
+            all_fixed_locators.extend(fixed_chunk)
+            print(f"Исправлено в части {idx}: {len(fixed_chunk)} локаторов")
+        
+        print(f"Всего получено исправленных локаторов: {len(all_fixed_locators)}")
+
+        if len(all_fixed_locators) != len(invalid_locators):
+            print(f"Количество исправленных локаторов ({len(all_fixed_locators)}) не соответствует количеству некорректных ({len(invalid_locators)})")
+        
+        return all_fixed_locators
+        
+    except Exception as e:
+        print(f"Ошибка при исправлении локаторов: {e}")
+        return []
+
+
 async def add_selenide(
     collected_locators: list[dict],
+    progress_callback=None,
 ) -> list[dict]:
 
     if not collected_locators:
@@ -201,6 +280,11 @@ async def add_selenide(
     for idx, chunk in enumerate(s_chunks, start=1):
         try:
             print(f"\n=== Генерация SelenideElement (часть {idx}/{len(s_chunks)}) ===\n")
+
+            if progress_callback and len(s_chunks) > 0:
+                progress = 0.7 + (idx / len(s_chunks)) * 0.2 
+                progress_callback(progress, f"Генерация SelenideElement (часть {idx}/{len(s_chunks)})")
+            
             selenide_response = await _generate_selenide_structured_with_timeout(chunk)
             enriched_chunk = selenide_response if isinstance(selenide_response, list) else []
             print(selenide_response)
@@ -215,6 +299,7 @@ async def add_selenide(
                 )
         except Exception as e:
             print(f"\nОшибка при генерации SelenideElement для части {idx}: {e}")
+            print("Используем оригинальные данные без Selenide элементов.")
             selenide_enriched.extend(chunk)
 
     if not selenide_enriched:
@@ -272,6 +357,7 @@ async def main(
     selectors: list[str] | None = None,
     prompt_description: str | None = None,
     generate_selenide: bool = False,
+    progress_callback=None,
 ):
     browser_profile = build_browser_profile()
 
@@ -281,12 +367,16 @@ async def main(
     for attempt in range(RETRIES):
         browser_session = BrowserSession(browser_profile=browser_profile)
         try:
+            if progress_callback:
+                progress_callback(0.1, "Запуск браузера...")
             await browser_session.start()
 
             target_url = url or DEFAULT_URL
             page = await browser_session.new_page(target_url)
             await asyncio.sleep(10)
 
+            if progress_callback:
+                progress_callback(0.2, "Сбор элементов со страницы...")
             elements_data, selector_stats = await collect_elements(
                 page=page,
                 selectors=selectors,
@@ -295,17 +385,76 @@ async def main(
 
             # save_elements_snapshot(elements_data)
 
-            collected_locators = await build_locators(elements_data=elements_data)
+            if progress_callback:
+                progress_callback(0.5, "Генерация XPath локаторов...")
+            collected_locators = await build_locators(
+                elements_data=elements_data,
+                progress_callback=progress_callback
+            )
 
             if generate_selenide:
-                collected_locators = await add_selenide(collected_locators=collected_locators)
+                if progress_callback:
+                    progress_callback(0.7, "Генерация Selenide элементов...")
+                collected_locators = await add_selenide(
+                    collected_locators=collected_locators,
+                    progress_callback=progress_callback
+                )
 
+            if progress_callback:
+                progress_callback(0.9, "Валидация локаторов...")
             validated_locators = await validate_locators_on_page(page, collected_locators)
-            # save_results(collected_locators, validated_locators)
+            
+            # Разделяем локаторы на корректные и некорректные
+            valid_locators, invalid_locators = filter_invalid_locators(validated_locators)
+            
+            print(f"\nРезультаты валидации:")
+            print(f"Корректных локаторов: {len(valid_locators)}")
+            print(f"Некорректных локаторов: {len(invalid_locators)}")
+            
+            # Исправляем некорректные локаторы, если они есть
+            final_validated_locators = valid_locators.copy() 
+            
+            if invalid_locators:
+                fixed_locators = await fix_locators(
+                    invalid_locators=invalid_locators,
+                    elements_data=elements_data,
+                    progress_callback=progress_callback
+                )
+                
+                # Повторно валидируем исправленные локаторы
+                if fixed_locators:
+                    if progress_callback:
+                        progress_callback(0.98, "Повторная валидация исправленных локаторов...")
+                    
+                    revalidated_locators = await validate_locators_on_page(page, fixed_locators)
+                    valid_fixed, still_invalid = filter_invalid_locators(revalidated_locators)
+                    
+                    print(f"\nРезультаты повторной валидации:")
+                    print(f"Успешно исправлено: {len(valid_fixed)}")
+                    print(f"Все еще некорректных: {len(still_invalid)}")
+                    
+                    # Добавляем только успешно исправленные локаторы
+                    final_validated_locators.extend(valid_fixed)
+                    
+                    # Если остались неисправленные, добавляем их как есть 
+                    if still_invalid:
+                        print(f"Внимание: {len(still_invalid)} локаторов не удалось исправить")
+                        final_validated_locators.extend(still_invalid)
+                else:
+                    print("Не удалось исправить локаторы")
+            
+            all_valid_count = len([loc for loc in final_validated_locators if loc.get('exists') and loc.get('count') == 1])
+            
+            # save_results(collected_locators, final_validated_locators)
+
+            if progress_callback:
+                progress_callback(1.0, "Готово!")
 
             return {
-                "locators": validated_locators,
+                "locators": final_validated_locators,
                 "selector_stats": selector_stats,
+                "valid_count": all_valid_count,
+                "total_count": len(final_validated_locators),
             }
 
         except Exception as e:
@@ -330,8 +479,9 @@ def run_el_attr_workflow(
     selectors: list[str] | None = None,
     prompt_description: str | None = None,
     generate_selenide: bool = False,
+    progress_callback=None,
 ):
     sanitized = sanitize_selectors(selectors, DEFAULT_SELECTORS, AVAILABLE_SELECTORS) if prompt_description is None else selectors
-    return asyncio.run(main(url, sanitized, prompt_description, generate_selenide))
+    return asyncio.run(main(url, sanitized, prompt_description, generate_selenide, progress_callback))
 
 

@@ -427,12 +427,69 @@ def main_page(model_params_config):
 
                     if mode == "По тегам":
                         if st.button("Собрать по тегам и сгенерировать локаторы"):
-                            with st.spinner("Собираем элементы и строим локаторы..."):
+                            # Создаем прогресс-бар и контейнер для статуса
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
+                            
+                            def update_progress(progress: float, message: str):
+                                progress_bar.progress(progress)
+                                status_text.text(message)
+                            
+                            try:
+                                result = run_el_attr_workflow(
+                                    target_url,
+                                    selected_selectors or DEFAULT_SELECTORS,
+                                    generate_selenide=generate_selenide,
+                                    progress_callback=update_progress,
+                                )
+                                if isinstance(result, dict):
+                                    locators = result.get("locators") or []
+                                    selector_stats = result.get("selector_stats") or {}
+                                else:
+                                    locators = result or []
+                                    selector_stats = {}
+
+                                total_locators = len(locators)
+                                valid_locators = sum(
+                                    1 for item in (locators or []) if isinstance(item, dict) and item.get("exists")
+                                )
+                                
+                                # Очищаем прогресс-бар и статус после завершения
+                                progress_bar.empty()
+                                status_text.empty()
+                                
+                                st.success("Готово.")
+                                st.caption(
+                                    f"Локаторов: **{total_locators}**, валидных: **{valid_locators}**."
+                                )
+
+                                st.session_state["el_attr_locators"] = locators or []
+                                st.session_state["el_attr_selector_stats"] = selector_stats or {}
+                            except Exception as e:
+                                # Очищаем прогресс-бар и статус при ошибке
+                                progress_bar.empty()
+                                status_text.empty()
+                                st.error(f"Ошибка при выполнении сценария: {e}")
+                    else:
+                        if st.button("Найти по описанию и сгенерировать локатор"):
+                            if not prompt_description:
+                                st.warning("Сначала введите описание элемента.")
+                            else:
+                                # Создаем прогресс-бар и контейнер для статуса
+                                progress_bar = st.progress(0)
+                                status_text = st.empty()
+                                
+                                def update_progress(progress: float, message: str):
+                                    progress_bar.progress(progress)
+                                    status_text.text(message)
+                                
                                 try:
                                     result = run_el_attr_workflow(
                                         target_url,
-                                        selected_selectors or DEFAULT_SELECTORS,
+                                        selectors=None,
+                                        prompt_description=prompt_description,
                                         generate_selenide=generate_selenide,
+                                        progress_callback=update_progress,
                                     )
                                     if isinstance(result, dict):
                                         locators = result.get("locators") or []
@@ -445,53 +502,28 @@ def main_page(model_params_config):
                                     valid_locators = sum(
                                         1 for item in (locators or []) if isinstance(item, dict) and item.get("exists")
                                     )
+                                    
+                                    # Очищаем прогресс-бар и статус после завершения
+                                    progress_bar.empty()
+                                    status_text.empty()
+                                    
                                     st.success("Готово.")
                                     st.caption(
                                         f"Локаторов: **{total_locators}**, валидных: **{valid_locators}**."
                                     )
+                                    if total_locators == 0:
+                                        st.warning(
+                                            "Не удалось найти элемент по описанию и сгенерировать локатор. "
+                                            "Попробуйте ещё раз."
+                                        )
 
                                     st.session_state["el_attr_locators"] = locators or []
                                     st.session_state["el_attr_selector_stats"] = selector_stats or {}
                                 except Exception as e:
+                                    # Очищаем прогресс-бар и статус при ошибке
+                                    progress_bar.empty()
+                                    status_text.empty()
                                     st.error(f"Ошибка при выполнении сценария: {e}")
-                    else:
-                        if st.button("Найти по описанию и сгенерировать локатор"):
-                            if not prompt_description:
-                                st.warning("Сначала введите описание элемента.")
-                            else:
-                                with st.spinner("Ищем элемент по описанию и строим локатор..."):
-                                    try:
-                                        result = run_el_attr_workflow(
-                                            target_url,
-                                            selectors=None,
-                                            prompt_description=prompt_description,
-                                            generate_selenide=generate_selenide,
-                                        )
-                                        if isinstance(result, dict):
-                                            locators = result.get("locators") or []
-                                            selector_stats = result.get("selector_stats") or {}
-                                        else:
-                                            locators = result or []
-                                            selector_stats = {}
-
-                                        total_locators = len(locators)
-                                        valid_locators = sum(
-                                            1 for item in (locators or []) if isinstance(item, dict) and item.get("exists")
-                                        )
-                                        st.success("Готово.")
-                                        st.caption(
-                                            f"Локаторов: **{total_locators}**, валидных: **{valid_locators}**."
-                                        )
-                                        if total_locators == 0:
-                                            st.warning(
-                                                "Не удалось найти элемент по описанию и сгенерировать локатор. "
-                                                "Попробуйте ещё раз."
-                                            )
-
-                                        st.session_state["el_attr_locators"] = locators or []
-                                        st.session_state["el_attr_selector_stats"] = selector_stats or {}
-                                    except Exception as e:
-                                        st.error(f"Ошибка при выполнении сценария: {e}")
 
                     saved_locators = st.session_state.get("el_attr_locators")
                     selector_stats = st.session_state.get("el_attr_selector_stats", {})

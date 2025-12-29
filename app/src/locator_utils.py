@@ -123,4 +123,22 @@ async def validate_locators_on_page(page: Any, locators: list[dict | str]) -> li
     return validated
 
 
+def filter_invalid_locators(validated_locators: list[dict]) -> tuple[list[dict], list[dict]]:
+    valid_locators = []
+    invalid_locators = []
+    
+    for locator in validated_locators:
+        count = locator.get("count", 0)
+        exists = locator.get("exists", False)
+        
+        # Корректный локатор: существует и находит ровно 1 элемент
+        if exists and count == 1:
+            valid_locators.append(locator)
+        else:
+            # Некорректный: не найден (count=0) или находит больше 1 элемента (count>1)
+            invalid_locators.append(locator)
+    
+    return valid_locators, invalid_locators
+
+
 
