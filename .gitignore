@@ -26,3 +26,10 @@ app/streamlit_modules/__pycache__/widgets.cpython-312.pyc
 app/Dockerfile.txt
 app/sfhon.ipynb
 Генератор локаторов.md
+app/__pycache__/quick_test.cpython-312.pyc
+app/__pycache__/test_parent_xpath_real.cpython-312.pyc
+app/src/__pycache__/auth_handler.cpython-312.pyc
+app/src/__pycache__/browser_config.cpython-312.pyc
+app/src/__pycache__/element_collector.cpython-312.pyc
+app/src/__pycache__/element_handler.cpython-312.pyc
+app/src/__pycache__/locator_generator.cpython-312.pyc

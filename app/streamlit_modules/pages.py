@@ -10,7 +10,6 @@ from streamlit_modules.widgets import *
 from src.utils import  split_api_test_cases
 from src.el_attr_workflow import (
     run_el_attr_workflow,
-    DEFAULT_URL,
     AVAILABLE_SELECTORS,
     DEFAULT_SELECTORS,
 )
@@ -302,12 +301,90 @@ def main_page(model_params_config):
 
                     target_url = st.text_input(
                         "URL страницы",
-                        value=DEFAULT_URL,
+                        placeholder="https://portal.apps.k8s.dev.domoy.ru",
+                        help="Введите URL страницы для анализа"
                     )
 
+                    # Блок авторизации
+                    st.markdown("### Авторизация")
+                    needs_auth = st.checkbox(
+                        "Требуется авторизация на странице",
+                        value=False,
+                        help="Отметьте, если страница требует входа в систему",
+                        key="el_attr_needs_auth",
+                    )
+                    
+                    auth_username = ""
+                    auth_password = ""
+                    auth_type = "custom"
+                    auth_organization = ""
+                    auth_custom_instructions = ""
+                    
+                    if needs_auth:
+                        # Выбор типа авторизации
+                        auth_type = st.selectbox(
+                            "Тип авторизации",
+                            options=["gosuslugi", "domrf_employee", "eisjks_bank", "eisjks_supplier", "custom"],
+                            format_func=lambda x: {
+                                "gosuslugi": "Госуслуги",
+                                "domrf_employee": "Сотрудники ГК ДОМ.РФ",
+                                "eisjks_bank": "ЕИСЖС ID (Банк)",
+                                "eisjks_supplier": "ЕИСЖС ID (Поставщик)",
+                                "custom": "Пользовательский сценарий"
+                            }[x],
+                            index=4,  # По умолчанию "custom"
+                            help="Выберите подходящий сценарий авторизации",
+                            key="el_attr_auth_type",
+                        )
+                        
+                        # Поля для логина и пароля
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            auth_username = st.text_input(
+                                "Логин",
+                                placeholder="Введите логин",
+                                key="el_attr_auth_username",
+                            )
+                        with col2:
+                            auth_password = st.text_input(
+                                "Пароль",
+                                type="password",
+                                placeholder="Введите пароль",
+                                key="el_attr_auth_password",
+                            )
+                        
+                        # Поле для организации (для определенных типов авторизации)
+                        if auth_type in ["gosuslugi", "eisjks_bank", "eisjks_supplier"]:
+                            if auth_type == "gosuslugi":
+                                org_placeholder = "Например: МИНСТРОЙ РБ"
+                                org_help = "Название организации для выбора после авторизации через Госуслуги"
+                            elif auth_type == "eisjks_bank":
+                                org_placeholder = "АО БАНК ДОМ.РФ"
+                                org_help = "Для банка обычно используется 'АО БАНК ДОМ.РФ'"
+                            else:  # eisjks_supplier
+                                org_placeholder = "Например: АО Кошки"
+                                org_help = "Название организации поставщика услуг"
+                            
+                            auth_organization = st.text_input(
+                                "Организация",
+                                placeholder=org_placeholder,
+                                help=org_help,
+                                key="el_attr_auth_organization",
+                            )
+                        
+                        # Поле для пользовательских инструкций (только для custom типа)
+                        if auth_type == "custom":
+                            auth_custom_instructions = st.text_area(
+                                "Инструкции для авторизации",
+                                placeholder="Опишите шаги авторизации:\n1. Нажать кнопку 'Войти'\n2. Заполнить форму\n3. Нажать 'Отправить'",
+                                help="Подробно опишите, как должна проходить авторизация на данной странице",
+                                key="el_attr_auth_custom_instructions",
+                            )
+
+                    st.markdown("### Настройки генерации")
                     mode = st.radio(
                         "Режим",
-                        options=("По тегам", "По описанию"),
+                        options=("По тегам", "По описанию", "От родительского элемента"),
                         horizontal=True,
                         key="el_attr_mode",
                     )
@@ -321,6 +398,7 @@ def main_page(model_params_config):
 
                     selected_selectors = []
                     prompt_description = ""
+                    parent_xpath = ""
 
                     if mode == "По тегам":
                         selected_selectors = st.multiselect(
@@ -330,22 +408,24 @@ def main_page(model_params_config):
                             help="По умолчанию: button, input.",
                             key="el_attr_selectors",
                         )
-                    else:
+                    elif mode == "По описанию":
                         prompt_description = st.text_input(
                             "Описание элемента (AI-поиск)",
                             placeholder="Например: зелёная кнопка 'Войти' в правом верхнем углу",
                             help="browser_use ищет один элемент по описанию и строит локатор",
                             key="el_attr_prompt_desc",
                         )
+                    else:  # "От родительского элемента"
+                        parent_xpath = st.text_input(
+                            "XPath родительского элемента",
+                            placeholder="//div[contains(@class, 'Search__Container')]",
+                            help="Система найдет все дочерние элементы внутри указанного элемента и сгенерирует для них локаторы",
+                            key="el_attr_parent_xpath",
+                        )
 
                     st.markdown("---")
 
                     def render_locator_panel(locators):
-                        """
-                        locators:
-                          - либо list[str] (старый формат),
-                          - либо list[dict] с полями 'xpath', 'exists', 'count', 'description' (новый формат).
-                        """
                         st.markdown("**XPath‑локаторы**")
 
                         rows = []
@@ -427,53 +507,70 @@ def main_page(model_params_config):
 
                     if mode == "По тегам":
                         if st.button("Собрать по тегам и сгенерировать локаторы"):
-                            # Создаем прогресс-бар и контейнер для статуса
-                            progress_bar = st.progress(0)
-                            status_text = st.empty()
-                            
-                            def update_progress(progress: float, message: str):
-                                progress_bar.progress(progress)
-                                status_text.text(message)
-                            
-                            try:
-                                result = run_el_attr_workflow(
-                                    target_url,
-                                    selected_selectors or DEFAULT_SELECTORS,
-                                    generate_selenide=generate_selenide,
-                                    progress_callback=update_progress,
-                                )
-                                if isinstance(result, dict):
-                                    locators = result.get("locators") or []
-                                    selector_stats = result.get("selector_stats") or {}
-                                else:
-                                    locators = result or []
-                                    selector_stats = {}
-
-                                total_locators = len(locators)
-                                valid_locators = sum(
-                                    1 for item in (locators or []) if isinstance(item, dict) and item.get("exists")
-                                )
+                            # Проверяем URL
+                            if not target_url or not target_url.strip():
+                                st.warning("Сначала введите URL страницы.")
+                            # Проверяем данные авторизации если она нужна
+                            elif needs_auth and (not auth_username or not auth_password):
+                                st.warning("Для авторизации необходимо указать логин и пароль.")
+                            else:
+                                # Создаем прогресс-бар и контейнер для статуса
+                                progress_bar = st.progress(0)
+                                status_text = st.empty()
                                 
-                                # Очищаем прогресс-бар и статус после завершения
-                                progress_bar.empty()
-                                status_text.empty()
+                                def update_progress(progress: float, message: str):
+                                    progress_bar.progress(progress)
+                                    status_text.text(message)
                                 
-                                st.success("Готово.")
-                                st.caption(
-                                    f"Локаторов: **{total_locators}**, валидных: **{valid_locators}**."
-                                )
+                                try:
+                                    result = run_el_attr_workflow(
+                                        target_url,
+                                        selected_selectors or DEFAULT_SELECTORS,
+                                        generate_selenide=generate_selenide,
+                                        progress_callback=update_progress,
+                                        needs_auth=needs_auth,
+                                        auth_username=auth_username if needs_auth else None,
+                                        auth_password=auth_password if needs_auth else None,
+                                        auth_type=auth_type if needs_auth else "custom",
+                                        auth_organization=auth_organization if needs_auth else None,
+                                        auth_custom_instructions=auth_custom_instructions if needs_auth else None,
+                                    )
+                                    if isinstance(result, dict):
+                                        locators = result.get("locators") or []
+                                        selector_stats = result.get("selector_stats") or {}
+                                    else:
+                                        locators = result or []
+                                        selector_stats = {}
 
-                                st.session_state["el_attr_locators"] = locators or []
-                                st.session_state["el_attr_selector_stats"] = selector_stats or {}
-                            except Exception as e:
-                                # Очищаем прогресс-бар и статус при ошибке
-                                progress_bar.empty()
-                                status_text.empty()
-                                st.error(f"Ошибка при выполнении сценария: {e}")
-                    else:
+                                    total_locators = len(locators)
+                                    valid_locators = sum(
+                                        1 for item in (locators or []) if isinstance(item, dict) and item.get("exists")
+                                    )
+                                    
+                                    # Очищаем прогресс-бар и статус после завершения
+                                    progress_bar.empty()
+                                    status_text.empty()
+                                    
+                                    st.success("Готово.")
+                                    st.caption(
+                                        f"Локаторов: **{total_locators}**, валидных: **{valid_locators}**."
+                                    )
+
+                                    st.session_state["el_attr_locators"] = locators or []
+                                    st.session_state["el_attr_selector_stats"] = selector_stats or {}
+                                except Exception as e:
+                                    # Очищаем прогресс-бар и статус при ошибке
+                                    progress_bar.empty()
+                                    status_text.empty()
+                                    st.error(f"Ошибка при выполнении сценария: {e}")
+                    elif mode == "По описанию":
                         if st.button("Найти по описанию и сгенерировать локатор"):
-                            if not prompt_description:
+                            if not target_url or not target_url.strip():
+                                st.warning("Сначала введите URL страницы.")
+                            elif not prompt_description:
                                 st.warning("Сначала введите описание элемента.")
+                            elif needs_auth and (not auth_username or not auth_password):
+                                st.warning("Для авторизации необходимо указать логин и пароль.")
                             else:
                                 # Создаем прогресс-бар и контейнер для статуса
                                 progress_bar = st.progress(0)
@@ -490,6 +587,12 @@ def main_page(model_params_config):
                                         prompt_description=prompt_description,
                                         generate_selenide=generate_selenide,
                                         progress_callback=update_progress,
+                                        needs_auth=needs_auth,
+                                        auth_username=auth_username if needs_auth else None,
+                                        auth_password=auth_password if needs_auth else None,
+                                        auth_type=auth_type if needs_auth else "custom",
+                                        auth_organization=auth_organization if needs_auth else None,
+                                        auth_custom_instructions=auth_custom_instructions if needs_auth else None,
                                     )
                                     if isinstance(result, dict):
                                         locators = result.get("locators") or []
@@ -515,6 +618,71 @@ def main_page(model_params_config):
                                         st.warning(
                                             "Не удалось найти элемент по описанию и сгенерировать локатор. "
                                             "Попробуйте ещё раз."
+                                        )
+
+                                    st.session_state["el_attr_locators"] = locators or []
+                                    st.session_state["el_attr_selector_stats"] = selector_stats or {}
+                                except Exception as e:
+                                    # Очищаем прогресс-бар и статус при ошибке
+                                    progress_bar.empty()
+                                    status_text.empty()
+                                    st.error(f"Ошибка при выполнении сценария: {e}")
+                    else:  # "От родительского элемента"
+                        if st.button("Собрать дочерние элементы и сгенерировать локаторы"):
+                            if not target_url or not target_url.strip():
+                                st.warning("Сначала введите URL страницы.")
+                            elif not parent_xpath:
+                                st.warning("Сначала введите XPath родительского элемента.")
+                            elif needs_auth and (not auth_username or not auth_password):
+                                st.warning("Для авторизации необходимо указать логин и пароль.")
+                            else:
+                                # Создаем прогресс-бар и контейнер для статуса
+                                progress_bar = st.progress(0)
+                                status_text = st.empty()
+                                
+                                def update_progress(progress: float, message: str):
+                                    progress_bar.progress(progress)
+                                    status_text.text(message)
+                                
+                                try:
+                                    result = run_el_attr_workflow(
+                                        target_url,
+                                        selectors=None,
+                                        prompt_description=None,
+                                        parent_xpath=parent_xpath,
+                                        generate_selenide=generate_selenide,
+                                        progress_callback=update_progress,
+                                        needs_auth=needs_auth,
+                                        auth_username=auth_username if needs_auth else None,
+                                        auth_password=auth_password if needs_auth else None,
+                                        auth_type=auth_type if needs_auth else "custom",
+                                        auth_organization=auth_organization if needs_auth else None,
+                                        auth_custom_instructions=auth_custom_instructions if needs_auth else None,
+                                    )
+                                    if isinstance(result, dict):
+                                        locators = result.get("locators") or []
+                                        selector_stats = result.get("selector_stats") or {}
+                                    else:
+                                        locators = result or []
+                                        selector_stats = {}
+
+                                    total_locators = len(locators)
+                                    valid_locators = sum(
+                                        1 for item in (locators or []) if isinstance(item, dict) and item.get("exists")
+                                    )
+                                    
+                                    # Очищаем прогресс-бар и статус после завершения
+                                    progress_bar.empty()
+                                    status_text.empty()
+                                    
+                                    st.success("Готово.")
+                                    st.caption(
+                                        f"Локаторов: **{total_locators}**, валидных: **{valid_locators}**."
+                                    )
+                                    if total_locators == 0:
+                                        st.warning(
+                                            "Не удалось найти дочерние элементы. "
+                                            "Проверьте правильность XPath родительского элемента."
                                         )
 
                                     st.session_state["el_attr_locators"] = locators or []
