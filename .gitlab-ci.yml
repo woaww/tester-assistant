@@ -1,5 +1,0 @@
-include:
-  - project: "EISGS/data-products/ci-templates"
-    ref: master
-    file:
-      - "ai-deploy-on-dp.gitlab-ci.yml" 
