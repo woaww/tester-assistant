@@ -1,1 +1,0 @@
-"""File-based artifact storage."""
