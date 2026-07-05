@@ -1,8 +1,11 @@
-__pycache__/uvi_wrap_tgi.cpython-312.pyc
+/.venv/
+**/__pycache__/
+*.pyc
+/runs/
+.env
 app/Dockerfile1.txt
 app/el_attr_format.py
 app/__pycache__/el_attr_format.cpython-312.pyc
-app/__pycache__/uvi_wrap_tgi.cpython-312.pyc
 app/generate_modules/__pycache__/test_case_generator.cpython-312.pyc
 app/generate_modules/__pycache__/xpath_generator.cpython-312.pyc
 app/src/__pycache__/el_attr_workflow.cpython-312.pyc
@@ -33,3 +36,162 @@ app/src/__pycache__/browser_config.cpython-312.pyc
 app/src/__pycache__/element_collector.cpython-312.pyc
 app/src/__pycache__/element_handler.cpython-312.pyc
 app/src/__pycache__/locator_generator.cpython-312.pyc
+.dockerignore
+.env.example
+README.md
+mlruns/1/traces/tr-01ffef3ebc1bc7119ab0d88073a3f1fa/artifacts/traces.json
+mlruns/1/traces/tr-04ad1d86fd674e2e73e231fec0f544d3/artifacts/traces.json
+mlruns/1/traces/tr-0660943626c0bd4d0ba5b30efc899b29/artifacts/traces.json
+mlruns/1/traces/tr-068328b5194263dab38d6b325e69e9ee/artifacts/traces.json
+mlruns/1/traces/tr-0697d52341a80b58b74d0c0ff0bfe365/artifacts/traces.json
+mlruns/1/traces/tr-079f82905043ace7128010931e0e28de/artifacts/traces.json
+mlruns/1/traces/tr-08179698032091a0d9b4fd708ea4e125/artifacts/traces.json
+mlruns/1/traces/tr-093bc9a5661235ffbb4673b271691d86/artifacts/traces.json
+mlruns/1/traces/tr-0b722e6bd95004d7769d48113ca58d59/artifacts/traces.json
+mlruns/1/traces/tr-0c62b0823a00d9c2de6bc7af169da0d3/artifacts/traces.json
+mlruns/1/traces/tr-0cf13df736917bbc5dcdbff484580e5f/artifacts/traces.json
+mlruns/1/traces/tr-0f776dca51e6644791c22cebd07c4ba6/artifacts/traces.json
+mlruns/1/traces/tr-11a7996f6febc30f10c7962058ed5dda/artifacts/traces.json
+mlruns/1/traces/tr-11ac4669d4bd2cd3dfe1749dadfcc4de/artifacts/traces.json
+mlruns/1/traces/tr-11c44c56cbd0a22778fc0fabb251841d/artifacts/traces.json
+mlruns/1/traces/tr-12217659bb33d49b22acd9928301293f/artifacts/traces.json
+mlruns/1/traces/tr-124cede90ed3a24dc6e2f229a84cb92c/artifacts/traces.json
+mlruns/1/traces/tr-14b695016babdc896c9cdee89d2b7f67/artifacts/traces.json
+mlruns/1/traces/tr-169ba5be4057e36044e7cce93d712d08/artifacts/traces.json
+mlruns/1/traces/tr-193e54834cad2e57d21acb68a8e08952/artifacts/traces.json
+mlruns/1/traces/tr-198b79ee341818be7f2f63a61fe4ef8a/artifacts/traces.json
+mlruns/1/traces/tr-1b3a467ee2b3a5a4018a703861c81b96/artifacts/traces.json
+mlruns/1/traces/tr-1ebe2adb473c93a999431536b150df96/artifacts/traces.json
+mlruns/1/traces/tr-1f984901eba3fb03ad0b489d16f8deb1/artifacts/traces.json
+mlruns/1/traces/tr-1fc292f79ebc8b051a96c5c065d09634/artifacts/traces.json
+mlruns/1/traces/tr-20eb9828242f465611f3863964ad0818/artifacts/traces.json
+mlruns/1/traces/tr-20f010281d26eebff7df02b2157f32f6/artifacts/traces.json
+mlruns/1/traces/tr-21ba4d159a7a7c6abdc059800fcf57c3/artifacts/traces.json
+mlruns/1/traces/tr-24531365ec38f7bd0c41127a764099a3/artifacts/traces.json
+mlruns/1/traces/tr-2b827b9eb2ef9b1c83f9a0aaacb49aa2/artifacts/traces.json
+mlruns/1/traces/tr-2e888e943b379f559fa29fa7570d06e5/artifacts/traces.json
+mlruns/1/traces/tr-30cccdd3ce662d8df17b4913c852f7b5/artifacts/traces.json
+mlruns/1/traces/tr-31a3f8bcefd8f63fb8f410e35ffd430d/artifacts/traces.json
+mlruns/1/traces/tr-35355c203d78e53202fb9f2b59006c63/artifacts/traces.json
+mlruns/1/traces/tr-35a1c8b212931199ebf5970a63f9885a/artifacts/traces.json
+mlruns/1/traces/tr-3622be7fa6dcd2739cc7ab51592cf4eb/artifacts/traces.json
+mlruns/1/traces/tr-368484d1dd1b2820f0e567cc808694fa/artifacts/traces.json
+mlruns/1/traces/tr-39b683cb4d3172e9127846a1de2d2744/artifacts/traces.json
+mlruns/1/traces/tr-3a39f1200db3a3c30b4a3c22bb69c57f/artifacts/traces.json
+mlruns/1/traces/tr-3d1f2c9f518db31d8f156d3bc34b2b4a/artifacts/traces.json
+mlruns/1/traces/tr-3ed4c006625da4cbc095eadf4f57aca6/artifacts/traces.json
+mlruns/1/traces/tr-437b25f9aab9970333fdcfe3ce9b5e67/artifacts/traces.json
+mlruns/1/traces/tr-4a5d5d128275c8152a478daae3d247a9/artifacts/traces.json
+mlruns/1/traces/tr-4cf6fc19f526e8e27c94923de5e05271/artifacts/traces.json
+mlruns/1/traces/tr-4d49eabf614b2117214ef777b6255c0e/artifacts/traces.json
+mlruns/1/traces/tr-4d4db04c25db98580e2817cbe98ea9df/artifacts/traces.json
+mlruns/1/traces/tr-4def8e770bd161c1fe03a1592cd27533/artifacts/traces.json
+mlruns/1/traces/tr-4e35ff2358c09acde4b8a4e463c724db/artifacts/traces.json
+mlruns/1/traces/tr-516c38c59fe39b309c9376d881e3f8a1/artifacts/traces.json
+mlruns/1/traces/tr-5238ecfb47ef59d81be5fa5dfa288d8a/artifacts/traces.json
+mlruns/1/traces/tr-542899677657c509fdb67dbade97e967/artifacts/traces.json
+mlruns/1/traces/tr-56224001451fd24b4b3635c8e2dee710/artifacts/traces.json
+mlruns/1/traces/tr-575db3664782b52f890cd9db20b90154/artifacts/traces.json
+mlruns/1/traces/tr-5b158eed59e4284ae10edd36547d5e0e/artifacts/traces.json
+mlruns/1/traces/tr-5b8a590e9dc1b3334c84695264d41a39/artifacts/traces.json
+mlruns/1/traces/tr-5c1b6b54751349c77c764f24df9255e4/artifacts/traces.json
+mlruns/1/traces/tr-5cd36b61e12255398801cbf5ce1dfd5c/artifacts/traces.json
+mlruns/1/traces/tr-5ee5617bd05d458ad0a69c591effd387/artifacts/traces.json
+mlruns/1/traces/tr-6a3109064b05231e145bac722d441ffe/artifacts/traces.json
+mlruns/1/traces/tr-6b5147ef1148952cafd7f9ab8e30d8c9/artifacts/traces.json
+mlruns/1/traces/tr-70543079623126be9e039be76cdecf37/artifacts/traces.json
+mlruns/1/traces/tr-721f9c16be31c937d2f5b5f0124a1621/artifacts/traces.json
+mlruns/1/traces/tr-72a5612c55af3475fbd2c1a15e0dbc30/artifacts/traces.json
+mlruns/1/traces/tr-74d1ccb0f5ff6c158cc9d29d2fe5e7a9/artifacts/traces.json
+mlruns/1/traces/tr-7568d394c6b1e8cd20551d2c6921ff69/artifacts/traces.json
+mlruns/1/traces/tr-766498a710fad50065500b6704201f07/artifacts/traces.json
+mlruns/1/traces/tr-7872b63aecd30110a7a622aafc6fee2b/artifacts/traces.json
+mlruns/1/traces/tr-78ee08fd0eb0882c87ffb02513fcf8ce/artifacts/traces.json
+mlruns/1/traces/tr-7f0bd8dbc5db2ba74846106dbc4c75ed/artifacts/traces.json
+mlruns/1/traces/tr-80c1c6e154665be60716bcb6e03e8f31/artifacts/traces.json
+mlruns/1/traces/tr-825f878054d783c7871329d68fbf4017/artifacts/traces.json
+mlruns/1/traces/tr-853253cfc88a98ce6c5339f8080e28ce/artifacts/traces.json
+mlruns/1/traces/tr-85a7eb0bcdbf27dead9ce4364c4dddcc/artifacts/traces.json
+mlruns/1/traces/tr-8c8eeb4d7fa2c52bf0800b49660bd170/artifacts/traces.json
+mlruns/1/traces/tr-8d3565013a4f425aec5934d5a944ffed/artifacts/traces.json
+mlruns/1/traces/tr-8fc3c16ee34fb8e7fee186a73e30a683/artifacts/traces.json
+mlruns/1/traces/tr-9172ec4efbd273b08389648b23cc26a1/artifacts/traces.json
+mlruns/1/traces/tr-95b57007e2a7af2fab908f33f3e09a3e/artifacts/traces.json
+mlruns/1/traces/tr-9826f9d99a70c6c7eab3f652dbcd21c2/artifacts/traces.json
+mlruns/1/traces/tr-9a1c2979639ae2fbadbdae526e545bc5/artifacts/traces.json
+mlruns/1/traces/tr-9b31bd95f5e2e74fa9a2bae56e87ac30/artifacts/traces.json
+mlruns/1/traces/tr-9b89cc7f8d4a79aaad71528b913dd05c/artifacts/traces.json
+mlruns/1/traces/tr-a029d843ba42edf73879de577a8b44d1/artifacts/traces.json
+mlruns/1/traces/tr-a0e620b296bc28c1f369adaa8f4fba04/artifacts/traces.json
+mlruns/1/traces/tr-a4b2a3c7b58f82d67a9dff1d15f3a581/artifacts/traces.json
+mlruns/1/traces/tr-a5464282520a72ddd746fa2e67abdf83/artifacts/traces.json
+mlruns/1/traces/tr-a5780c55c30045ca2b98817a16ab27b2/artifacts/traces.json
+mlruns/1/traces/tr-a5812c3dc175a489ca894478649bc757/artifacts/traces.json
+mlruns/1/traces/tr-a62868f4a92e9b7c47e3231726abea15/artifacts/traces.json
+mlruns/1/traces/tr-ace5085170d083ee38368fb8dd9b9352/artifacts/traces.json
+mlruns/1/traces/tr-adeb2f46c3046362b30f48ef7b124551/artifacts/traces.json
+mlruns/1/traces/tr-afc268ce408b5c70695f0438a27101e3/artifacts/traces.json
+mlruns/1/traces/tr-b0154417696ce9f065ae979b75068a11/artifacts/traces.json
+mlruns/1/traces/tr-b03e635c5e1186ff638ce0bb2173c556/artifacts/traces.json
+mlruns/1/traces/tr-b1aecc5d750f636c2040124b0d337bc0/artifacts/traces.json
+mlruns/1/traces/tr-b63df497515efc295d7c17c43ef809da/artifacts/traces.json
+mlruns/1/traces/tr-b6c5ec4c005fc40fc8adc73c7d1a26c8/artifacts/traces.json
+mlruns/1/traces/tr-c1fc735f4b4c5242ab8b0d0840d1eba1/artifacts/traces.json
+mlruns/1/traces/tr-c4c20c8d322524d03e5c502daea350d5/artifacts/traces.json
+mlruns/1/traces/tr-cb57a83e56e5ac7a5f71835f121d4337/artifacts/traces.json
+mlruns/1/traces/tr-cbaeb5a51a37a770831570d47470cd09/artifacts/traces.json
+mlruns/1/traces/tr-cce4197b123a8d7fc864f3f9c633491a/artifacts/traces.json
+mlruns/1/traces/tr-ce2a44a559696163b28c9edea05fb16d/artifacts/traces.json
+mlruns/1/traces/tr-cf0365d89bad5beba86fced84165bab0/artifacts/traces.json
+mlruns/1/traces/tr-d23ab3351085ed7f6acd7547b88a5970/artifacts/traces.json
+mlruns/1/traces/tr-d2fbf97428d7ff34c54d38deb0e390a9/artifacts/traces.json
+mlruns/1/traces/tr-dd72baac572d8ccb773ee1a6917b7069/artifacts/traces.json
+mlruns/1/traces/tr-de911a1db5ac294a8f61d7b451ec42e8/artifacts/traces.json
+mlruns/1/traces/tr-df072c044aefac4ea0126495f71b4e41/artifacts/traces.json
+mlruns/1/traces/tr-df8d872c17d08ec75ba08d4ab1754cc6/artifacts/traces.json
+mlruns/1/traces/tr-e2817ac5bc1322167ac5c7a27e383ba5/artifacts/traces.json
+mlruns/1/traces/tr-e30ae6f05c37cf672d5d907f94ca268b/artifacts/traces.json
+mlruns/1/traces/tr-e3b4d9abeed9cd427971fad02f4dca9c/artifacts/traces.json
+mlruns/1/traces/tr-eabace804467ea0b7805377e0036d5e0/artifacts/traces.json
+mlruns/1/traces/tr-ebe0ea1e160e26859486d48f42493f8f/artifacts/traces.json
+mlruns/1/traces/tr-ebf74b336222458891b56c7c3b9325f7/artifacts/traces.json
+mlruns/1/traces/tr-ef045499b9b1f970c196e97a005564b8/artifacts/traces.json
+mlruns/1/traces/tr-f2f00ca4d9946881ffdf388ea90087aa/artifacts/traces.json
+mlruns/1/traces/tr-f48305a2a853a7963a6b669e0b9a0e2c/artifacts/traces.json
+mlruns/1/traces/tr-f7eac6900105f6b083972bee2b8e45b3/artifacts/traces.json
+mlruns/1/traces/tr-fb404072cc0299895723cf3041e6c60a/artifacts/traces.json
+mlruns/1/traces/tr-fbdb2c061684f2158e56ec57332cd8ac/artifacts/traces.json
+mlruns/1/traces/tr-fda8e0781ad36248ff10b4b4e9a9df2c/artifacts/traces.json
+mlruns/1/traces/tr-fe4b388bb7168477171c632e409257d2/artifacts/traces.json
+Отчет/INSTRUCTIONS_PlantUML.md
+Отчет/locators_20260410_033653_76eebb85.json
+Отчет/locators.txt
+Отчет/plantuml_3.1_deployment.puml
+Отчет/plantuml_3.2_class_diagram.puml
+Отчет/plantuml_3.5_function_tree.puml
+Отчет/plantuml_3.6_dialog_scenario.puml
+Отчет/plantuml_3.8_3.9_er_diagram.puml
+Отчет/plantuml_3.8_logical_er.puml
+Отчет/ВКР 09.03.03 УД.md
+Отчет/ВКР 09.03.03 УД.pdf
+Отчет/Курсовая работа.md
+Отчет/Проектная практика_МирошникЕИ.docx
+Отчет/Технологическая (проектно-технологическая) прктика 09.03.03 УД.md
+Отчет/Технологическая (проектно-технологическая) прктика 09.03.03 УД.pdf
+Отчет/Технологическая практика_МирошникЕИ.md
+Отчет/Технологическая практика.md
+Отчет/ВКР/Аналитический раздел.md
+Отчет/ВКР/Отчет.md
+Отчет/ВКР/Презентация_шаблон.md
+Отчет/ВКР/Презентация.md
+Отчет/ВКР/Приложение А (Экономический раздел).md
+Отчет/ВКР/Раздел 4.md
+Отчет/ВКР/Список источников.md
+Отчет/Отчет_финал/3.3+4.md
+Отчет/Отчет_финал/Приложения_листинги_сервер.md
+Отчет/Отчет_финал/Проверенный отчет.md
+Отчет/Отчет_финал/Проектная практика_МирошникЕИ.md
+Отчет/Отчет_финал/Технологическая правктика.md
+docker-compose.dev.yaml
+mlflow.db
+docker-compose.dev.yaml

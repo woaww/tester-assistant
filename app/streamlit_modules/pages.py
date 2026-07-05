@@ -1,710 +1,459 @@
-import streamlit as st
-from functools import partial
+import json
+import base64
+from datetime import datetime
+import os
+
 import pandas as pd
-from streamlit_modules.session_manager import (login_callback, get_api_cases,logout_callback)
-from streamlit_modules.settings import (render_param_slider, is_wiki_url,
-                                        is_jira_url, reset_params_to_default)
-from src.text_constants import AppSettings, APP_SIDE_PANEL_PARAMS
-from src.models import ModelParamsConfig, ApiKwargs, WikiJiraKwargs
-from streamlit_modules.widgets import *
-from src.utils import  split_api_test_cases
-from src.el_attr_workflow import (
-    run_el_attr_workflow,
-    AVAILABLE_SELECTORS,
-    DEFAULT_SELECTORS,
+import streamlit as st
+
+from streamlit_modules.ui import section_label
+from src.domain_models import (
+    AuthConfig,
+    ElementSnapshot,
+    LlmConfig,
+    LocatorResult,
+    LocatorRunArtifacts,
+    LocatorRunMeta,
+    LocatorValidation,
+    RunMode,
+    RunMetrics,
+    RunTimings,
 )
+from src.el_attr_workflow import AVAILABLE_SELECTORS, DEFAULT_SELECTORS, run_el_attr_workflow
+from src.llm_provider import get_browser_llm_model, get_llm_base_url, get_llm_chat_model, get_llm_tools_model
+from src.storage.file_store import FileRunStore, make_run_id
+from src.secure_store import Credentials, clear_credentials, is_keyring_available, load_credentials, save_credentials
+from src.mlflow_utilits import log_locator_run
 
 
-def auth_page():
-    st.title("Авторизация")
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = (os.getenv(name, "") or "").strip().lower()
+    if not raw:
+        return default
+    return raw in ("1", "true", "yes", "y", "on")
 
-    email = st.text_input("Введите ваш email:", key="email_input")
 
-    # Используем on_click для мгновенного выполнения логики
-    st.button(
-        "Войти",
-        on_click=login_callback,
-        args=(email,) # Передаем значение email в функцию коллбэка
+def _render_locator_panel(locators):
+    rows = []
+    if locators:
+        first = locators[0]
+        if isinstance(first, dict):
+            for item in locators:
+                exists = item.get("exists")
+                count = item.get("count")
+                status = "❌" if not exists else ("⚠️" if isinstance(count, int) and count > 1 else "✅")
+                rows.append({
+                    "XPath": item.get("xpath", ""),
+                    "Описание": item.get("description") or "—",
+                    "Статус": status,
+                    "Кол-во": count if count is not None else "?",
+                    "SelenideElement": item.get("selenide_element") or "—",
+                })
+        else:
+            rows = [{"XPath": x, "Описание": "—", "Статус": "?", "Кол-во": "?", "SelenideElement": "—"} for x in locators]
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Всего", len(rows))
+    c2.metric("✅ Валидных", sum(1 for r in rows if r["Статус"] == "✅"))
+    c3.metric("⚠️ Дублей", sum(1 for r in rows if r["Статус"] == "⚠️"))
+    c4.metric("❌ Невалидных", sum(1 for r in rows if r["Статус"] == "❌"))
+
+    dl1, dl2, dl3 = st.columns([1, 1, 2])
+    with dl1:
+        st.download_button("⬇ TXT", data="\n".join(r["XPath"] for r in rows), file_name="locators.txt", mime="text/plain", width="stretch")
+    with dl2:
+        if st.session_state.get("el_attr_locators_json"):
+            st.download_button("⬇ JSON", data=st.session_state["el_attr_locators_json"],
+                               file_name=f"locators_{st.session_state.get('el_attr_run_id','run')}.json",
+                               mime="application/json", width="stretch")
+    with dl3:
+        if st.session_state.get("el_attr_run_id"):
+            st.caption(f"run: {st.session_state['el_attr_run_id']}")
+
+    view = st.radio(
+        "Вид результата",
+        options=("Таблица", "Текст"),
+        horizontal=True,
+        key="locator_view_mode",
+        label_visibility="collapsed",
     )
-    # Сообщение об успехе или ошибке теперь нужно обрабатывать внутри самого коллбэка, 
-    # либо полагаться на основную логику переключения страниц.
+    if view == "Текст":
+        lines = []
+        for r in rows:
+            if r["Описание"] != "—":
+                lines.append(f"# {r['Описание']}")
+            lines.append(r["XPath"])
+            if r["SelenideElement"] != "—":
+                lines.append(r["SelenideElement"])
+        st.code("\n".join(lines) or "—", language="text")
+    else:
+        df = pd.DataFrame(rows or [{"XPath": "—", "Описание": "—", "Статус": "—", "Кол-во": "—", "SelenideElement": "—"}])
+        df.index = df.index + 1
+        df.index.name = "№"
+        st.dataframe(df, width="stretch")
 
-def main_page(model_params_config):
-    st.title(f"Добро пожаловать, {st.session_state['user_email']}!")
-    st.write("Это главная страница вашего приложения.")
-    
-    # Используем on_click для мгновенного выполнения логики выхода
-    st.button("Выйти", on_click=logout_callback)
-        
-    with st.container():
-        st.title(AppSettings.PAGE_HOME)
 
-            # --- Боковая панель ---
-        with st.sidebar:
-            st.header(AppSettings.PAGE_HOME)
-            params_config = model_params_config
+def _execute_workflow(**kwargs):
+    progress_bar = st.progress(0)
+    status_text = st.empty()
 
-            # Инициализация параметров в session_state при первом запуске
-            if 'model_params' not in st.session_state:
-                st.session_state.model_params = reset_params_to_default(params_config)
+    def update_progress(progress: float, message: str):
+        progress_bar.progress(progress)
+        status_text.text(message)
 
-            params_dict = {}
-            for param_name, param_data in params_config.__dict__.items():
-                session_state_key = f"param_{param_name}"
-                value = render_param_slider(param_data, session_state_key)
-                params_dict[param_name] = value
+    try:
+        # сохранение creds — только если явно включено и keyring доступен
+        if kwargs.get("needs_auth") and is_keyring_available() and st.session_state.get("el_attr_save_creds"):
+            u = kwargs.get("auth_username")
+            p = kwargs.get("auth_password")
+            url = kwargs.get("url")
+            if u and p and url:
+                save_credentials(str(url), Credentials(username=str(u), password=str(p)))
 
-            st.session_state.model_params.update(params_dict)
+        # project_id / project_name нужны только для сохранения в БД после запуска, не для самого workflow
+        wf_kw = {k: v for k, v in kwargs.items() if k not in ("project_id", "project_name")}
+        result = run_el_attr_workflow(progress_callback=update_progress, **wf_kw)
+        locators = result.get("locators") if isinstance(result, dict) else (result or [])
+        selector_stats = result.get("selector_stats") if isinstance(result, dict) else {}
+        elements_data = result.get("elements_data") if isinstance(result, dict) else None
+        timings = result.get("timings") if isinstance(result, dict) else None
+        validation_stats = result.get("validation_stats") if isinstance(result, dict) else None
+        runtime_artifacts = result.get("artifacts") if isinstance(result, dict) else None
+        total_locators = len(locators)
+        valid_locators = sum(1 for item in (locators or []) if isinstance(item, dict) and item.get("exists"))
 
-        OPTIONS = st.selectbox(AppSettings.ST_SELECTBOX, AppSettings.OPTIONS_LIST)
+        run_id = make_run_id()
+        mode_model = RunMode(
+            kind=("by_tags" if kwargs.get("selectors") else ("by_parent" if kwargs.get("parent_xpath") else "by_description")),
+            selectors=kwargs.get("selectors"),
+            prompt_description=kwargs.get("prompt_description"),
+            parent_xpath=kwargs.get("parent_xpath"),
+        )
+        auth_model = AuthConfig(
+            enabled=bool(kwargs.get("needs_auth")),
+            custom_instructions=kwargs.get("auth_custom_instructions"),
+        )
+        llm_model = LlmConfig(
+            base_url=get_llm_base_url(),
+            chat_model=get_llm_chat_model(),
+            tools_model=get_llm_tools_model(),
+            browser_model=get_browser_llm_model(),
+            temperature=st.session_state.model_params.get("temperature") if "model_params" in st.session_state else None,
+            max_new_tokens=st.session_state.model_params.get("max_new_tokens") if "model_params" in st.session_state else None,
+            repetition_penalty=st.session_state.model_params.get("repetition_penalty") if "model_params" in st.session_state else None,
+            frequency_penalty=st.session_state.model_params.get("frequency_penalty") if "model_params" in st.session_state else None,
+        )
+        meta = LocatorRunMeta(
+            run_id=run_id,
+            url=str(kwargs.get("url") or ""),
+            created_at=datetime.utcnow(),
+            mode=mode_model,
+            auth=auth_model,
+            llm=llm_model,
+            limits=result.get("limits") if isinstance(result, dict) else {},
+        )
+        if isinstance(timings, dict):
+            meta.timings = RunTimings(
+                browser_start_s=timings.get("browser_start_s"),
+                auth_s=timings.get("auth_s"),
+                collect_elements_s=timings.get("collect_elements_s"),
+                generate_locators_s=timings.get("generate_locators_s"),
+                validate_locators_s=(validation_stats or {}).get("validate_locators_s") if isinstance(validation_stats, dict) else None,
+                fix_locators_s=(validation_stats or {}).get("fix_locators_s") if isinstance(validation_stats, dict) else None,
+                total_s=timings.get("total_s"),
+            )
+        if isinstance(validation_stats, dict):
+            meta.metrics = RunMetrics(
+                total_elements=sum(len(v) for v in elements_data.values()) if isinstance(elements_data, dict) else 0,
+                total_locators=validation_stats.get("total_after_generation") or total_locators,
+                valid_after_generation=validation_stats.get("valid_after_generation") or 0,
+                invalid_after_generation=validation_stats.get("invalid_after_generation") or 0,
+                fixed_valid=validation_stats.get("fixed_valid") or 0,
+                still_invalid=validation_stats.get("still_invalid") or 0,
+                accuracy=validation_stats.get("accuracy"),
+                fix_rate=validation_stats.get("fix_rate"),
+                correctness=validation_stats.get("correctness"),
+            )
 
-        with st.container():
-            match OPTIONS:
-                # === Блок по работе с Wiki ===
+        flat_elements: list[dict] = []
+        if isinstance(elements_data, dict):
+            for group, elements in elements_data.items():
+                if not isinstance(elements, list):
+                    continue
+                for el in elements:
+                    if isinstance(el, dict):
+                        el_copy = dict(el)
+                        el_copy["_selector_group"] = group
+                        flat_elements.append(el_copy)
 
-                case AppSettings.TYPE_OPTION_WIKI:
-                    st.subheader(AppSettings.TYPE_OPTION_WIKI)
+        elements_models: list[ElementSnapshot] = []
+        for idx, el in enumerate(flat_elements):
+            elements_models.append(
+                ElementSnapshot(
+                    element_id=f"e{idx}",
+                    tag=el.get("tag"),
+                    attributes=el.get("attributes") or {},
+                    textContent=el.get("textContent"),
+                    parent=el.get("parent"),
+                    siblings=el.get("siblings"),
+                    selector_group=el.get("_selector_group"),
+                )
+            )
 
-                    # Форма для основной генерации тест-кейсов
-                    with st.form(key="wiki_form"):
-                        wiki_url = st.text_input("Введите URL страницы Вики")
-                        submit_button = st.form_submit_button(label=AppSettings.BUTTON_GET_CASES)
+        locator_models: list[LocatorResult] = []
+        for item in locators or []:
+            if not isinstance(item, dict) or not item.get("xpath"):
+                continue
+            original_index = item.get("original_index")
+            element_id = f"e{original_index}" if isinstance(original_index, int) else "e?"
+            locator_models.append(
+                LocatorResult(
+                    element_id=element_id,
+                    xpath=item.get("xpath", ""),
+                    description=item.get("description", "") or "",
+                    selenide_element=item.get("selenide_element"),
+                    original_index=original_index if isinstance(original_index, int) else None,
+                    validation=LocatorValidation(exists=bool(item.get("exists")), count=int(item.get("count") or 0)),
+                    stage=str(item.get("stage") or "generated"),
+                )
+            )
 
-                        if submit_button:
-                            description_text = is_wiki_url(wiki_url)
-                            if not description_text:
-                                st.session_state.jira_wiki_error_message = "Введите корректный URL страницы Вики"
-                            else:
-                                kwargs_for_wiki = WikiJiraKwargs("wiki", description_text)
-                                st.session_state.kwargs_for_wiki = kwargs_for_wiki
-                                on_click_with_args_wiki = partial(button_jira_wiki_get_test_case, kwargs_for_wiki)
-                                on_click_with_args_wiki()
+        artifacts = LocatorRunArtifacts(meta=meta, elements=elements_models, locators=locator_models)
+        store = FileRunStore()
+        store.save_run(artifacts, include_elements=True)
+        # сохраняем сырые ответы LLM, если они присутствуют в локаторах
+        raw_seen = 0
+        for i, item in enumerate(locators or []):
+            if not isinstance(item, dict):
+                continue
+            raw = item.get("_raw_llm_meta")
+            if raw and raw_seen < 50:
+                store.save_raw_llm(run_id, f"chunk_{i:04d}.json", raw)
+                raw_seen += 1
 
-                    # Отображаем предупреждение, если оно есть
-                    if 'jira_wiki_error_message' in st.session_state:
-                        st.warning(st.session_state.jira_wiki_error_message)
-                        del st.session_state.jira_wiki_error_message
+        # сохраняем журнал процесса и скриншоты страницы в runs/<run_id>/
+        if isinstance(runtime_artifacts, dict):
+            events = runtime_artifacts.get("events") or []
+            if isinstance(events, list) and events:
+                store.save_event_log(run_id, events)
 
-                    # Отображаем результат, если он есть
-                    if 'wiki_test_cases_response' in st.session_state:
-                        st.markdown(st.session_state.wiki_test_cases_response)
-
-                        # Восстанавливаем kwargs, используя сохранённый текст
-                        if 'kwargs_for_wiki' in st.session_state:
-                            kwargs_for_wiki_new = st.session_state.kwargs_for_wiki
-                            kwargs_for_wiki_new = kwargs_for_wiki_new.model_copy(update={"new_cases": True})
-                            on_click_with_args_wiki_new = partial(button_jira_wiki_get_test_case, kwargs_for_wiki_new)
-
-                            st.button(
-                                label="Сгенерировать дополнительные тестовые кейсы (Вики)",
-                                on_click=on_click_with_args_wiki_new,
-                                key="btn_generate_more_cases"
-                            )
-                    
-                        # === Отправить в TestIt, источник и фидбэк ===
-                        # st.button(
-                        #     label="Отправить комментарий к задаче в Вики",
-                        #     on_click=add_comment_to_page,
-                        #     kwargs={'url': wiki_url, 
-                        #             'comment_body': st.session_state.wiki_test_cases_response}
-                        # )
-
-                        if st.button(
-                            label="Отправить комментарий к задаче в Вики",
-                            on_click=add_comment_to_page,
-                            kwargs={'url': wiki_url, 
-                                    'comment_body': st.session_state.wiki_test_cases_response}
-                        ):
-                                st.success("Комментарий отправлен!")
-
-                        project_name = st.text_input("Введите название проекта для TestIt'а")
-                        section_name = st.text_input("Введите название секции для TestIt'а")
-                        new_section_name = st.text_input("Введите название новой секции для TestIt'а")
-                        st.button(
-                            "Отправить кейсы в TestIt",
-                            on_click=send_to_testit,
-                            kwargs={"project_name": project_name, 
-                                    "section_name": section_name, 
-                                    "new_section_name": new_section_name, 
-                                    "source_type": "wiki"}
+            screenshots = runtime_artifacts.get("screenshots") or []
+            if isinstance(screenshots, list):
+                for shot in screenshots:
+                    if not isinstance(shot, dict):
+                        continue
+                    content_b64 = shot.get("content_b64")
+                    if not content_b64:
+                        continue
+                    try:
+                        raw = base64.b64decode(content_b64)
+                        store.save_screenshot_bytes(
+                            run_id,
+                            str(shot.get("name") or f"shot_{len(screenshots)}"),
+                            raw,
                         )
+                    except Exception:
+                        continue
+        st.session_state["el_attr_run_id"] = run_id
+        st.session_state["el_attr_locators_json"] = json.dumps(
+            [x.model_dump(mode="json") for x in artifacts.locators], ensure_ascii=False, indent=2
+        )
 
-                        st.write("Пожалуйста, оцените ответ:")
-                        feedback_widget(
-                                url=wiki_url,
-                                response = st.session_state.wiki_test_cases_response,
-                                model_params=st.session_state.model_params,
-                                user_email=st.session_state.user_email
-                            )
-                        
-                # === Блок по работе с API ===
-                case AppSettings.TYPE_OPTION_CURL:
+        # Опционально: записываем результаты в Postgres для “управления данными”
+        if _env_bool("DB_ENABLED", False):
+            try:
+                from src.database.locator_db_service import LocatorDbService
 
-                    st.subheader(AppSettings.TYPE_OPTION_CURL)
+                LocatorDbService().save_run(
+                    url=meta.url,
+                    run_mode=meta.mode.kind,
+                    locators=[x.model_dump(mode="json") for x in artifacts.locators],
+                    elements_data=[x.model_dump(mode="json") for x in artifacts.elements],
+                    llm_config=meta.llm.model_dump(mode="json") if meta.llm else None,
+                    auth_config=meta.auth.model_dump(mode="json") if meta.auth else None,
+                    metrics=meta.metrics.model_dump(mode="json") if meta.metrics else None,
+                    timings=meta.timings.model_dump(mode="json") if meta.timings else None,
+                    artifacts_path=str(store.get_run_dir(run_id)),
+                    project_id=kwargs.get("project_id"),
+                    project_name=kwargs.get("project_name"),
+                )
+            except Exception as e:
+                st.warning(f"Не удалось сохранить результаты в БД: {e}")
 
-                    with st.form(key="api_form"):
-                        spec_url = st.text_input(
-                            "Введите URL спецификации API",
-                            value=AppSettings.DSCR_BASE_URL_VALUE
-                        )
-                        spec_path = st.text_input(
-                            "Введите нужный path",
-                            value=AppSettings.DSCR_BASE_PATH_VALUE
-                        )
-                        spec_method = st.text_input(
-                            "Введите метод",
-                            value=AppSettings.DSCR_BASE_METHOD_VALUE
-                        )
-                        submit_button = st.form_submit_button(label="Сгенерировать тестовые кейсы в формате curl")
-
-                        if submit_button:
-                            if not spec_url or not spec_path or not spec_method:
-                                st.session_state.api_error_message = "Введите URL спецификации API, нужный path и метод"
-                            else:
-                                kwargs_for_api = ApiKwargs(spec_url, "api", spec_path, spec_method)
-                                st.session_state.kwargs_for_api = kwargs_for_api
-                                on_click_with_args_api = partial(button_api_get_test_case, kwargs_for_api)
-                                on_click_with_args_api()
-
-                    # Отображаем предупреждение, если оно есть
-                    if 'api_error_message' in st.session_state:
-                        st.warning(st.session_state.api_error_message)
-                        del st.session_state.api_error_message
-
-                    # Отображаем результат, если он есть
-                    if 'api_test_cases_response' in st.session_state:
-                        st.markdown(split_api_test_cases(get_api_cases()))
-
-                        # Восстанавливаем kwargs, используя сохранённый текст
-                        if 'kwargs_for_api' in st.session_state:
-                            kwargs_for_api_orig = st.session_state.kwargs_for_api
-                            kwargs_for_api_new = kwargs_for_api_orig.model_copy(update={"new_cases": True})
-                        # Кнопка для генерации дополнительных тест-кейсов
-                        # kwargs_for_api_new = ApiKwargs(spec_url, "api", spec_path, spec_method, new_cases=True)
-                            on_click_with_args_api_new = partial(button_api_get_test_case, kwargs_for_api_new)
-                            st.button(
-                                "Сгенерировать дополнительные тестовые кейсы (API)",
-                                on_click=on_click_with_args_api_new
-                            )
-
-                        feedback_widget(
-                            url=spec_url,
-                            response=st.session_state.api_test_cases_response,
-                            path=spec_path,
-                            method=spec_method,
-                            model_params=st.session_state.model_params,
-                            user_email=st.session_state.user_email
-                        )
-
-                        # --- перевод на другие языки ---
-                        language = st.selectbox("Выберите язык для преобразования тест-кейсов",
-                                                ["Java + RestAssured", "Python + Requests"])
-                        upd_kwargs_for_api = st.session_state.kwargs_for_api.model_copy(
-                            update={
-                                "type": "translate_test_cases",
-                                "new_cases": False,
-                                "language": language
-                            }
-                        )
-                        # upd_kwargs_for_api = ApiKwargs(spec_url, "translate_test_cases", 
-                        #                                spec_path, spec_method,
-                        #                                False, language)
-                        # upd_kwargs_for_api = kwargs_for_api.model_copy(update={"type": "translate_test_cases",
-                        #                                             "new_cases":False, 
-                        #                                             "language": language})
-                        
-                        on_click_with_args_api_upd = partial(button_api_get_test_case, 
-                                                        upd_kwargs_for_api)
-                        
-                        st.button("Преобразовать тестовые кейсы",
-                            on_click=on_click_with_args_api_upd)
-                        
-                        if getattr(st.session_state, 'translated_test_cases_response', None):
-                                st.markdown(st.session_state.translated_test_cases_response)
-
-                # === Блок по работе с Jira ===
-                case AppSettings.TYPE_OPTION_JIRA:
-                    st.subheader(AppSettings.TYPE_OPTION_JIRA)
-
-                    with st.form(key="jira_form"):
-                        jira_url = st.text_input("Введите URL страницы Jira")
-                        submit_button = st.form_submit_button(label=AppSettings.BUTTON_GET_CASES)
-
-                        if submit_button:
-                            description_text = is_jira_url(jira_url)
-                            if not description_text:  # проверяем на пустоту или None
-                                st.session_state.jira_wiki_error_message = "Введите корректный URL страницы Jira"
-                            else:
-                                kwargs_for_jira = WikiJiraKwargs("jira", description_text)
-                                st.session_state.kwargs_for_jira = kwargs_for_jira
-                                on_click_with_args_jira = partial(button_jira_wiki_get_test_case, kwargs_for_jira)
-                                on_click_with_args_jira()
-
-                    # Отображаем предупреждение, если оно есть
-                    if 'jira_wiki_error_message' in st.session_state:
-                        st.warning(st.session_state.jira_wiki_error_message)
-                        del st.session_state.jira_wiki_error_message
-
-                    # Отображаем результат, если он есть
-                    if 'jira_test_cases_response' in st.session_state:
-                        st.markdown(st.session_state.jira_test_cases_response)
-
-                        if 'kwargs_for_jira' in st.session_state:
-                            kwargs_for_jira_new = st.session_state.kwargs_for_jira
-                    # === Генерация дооплнительных тестовых кейсов ===
-                    # Кнопка для генерации дополнительных тест-кейсов (отображается только если тест-кейсы уже сгенерированы)
-                            kwargs_for_jira_new = kwargs_for_jira_new.model_copy(update={"new_cases":True})
-                            on_click_with_args_jira_new = partial(button_jira_wiki_get_test_case, 
-                                                        kwargs_for_jira_new)
-
-                            st.button(
-                                label="Сгенерировать дополнительные тестовые кейсы (Вики)",
-                                on_click=on_click_with_args_jira_new,
-                                key="btn_generate_more_cases_jira")
-                    
-                            # === Отправить в TestIt, источник и фидбэк ==
-                            project_name = st.text_input("Введите название проекта для TestIt'а",)
-                            section_name = st.text_input("Введите название секции для TestIt'а",)
-                            new_section_name = st.text_input("Введите название новой секции для TestIt'а")
-                            st.button(
-                                "Отправить кейсы в TestIt",
-                                on_click=send_to_testit,
-                                kwargs={"project_name": project_name, 
-                                        "section_name": section_name, 
-                                        "new_section_name": new_section_name, 
-                                        "source_type": "jira"}
-                            )
-
-                            # st.button(
-                            #     label="Отправить комментарий к задаче в Jira",
-                            #     on_click=add_comment_to_issue,
-                            #     kwargs={'url': jira_url, 
-                            #             'comment_body': st.session_state.jira_test_cases_response}
-                            # )
-                            if st.button(
-                                label="Отправить комментарий к задаче в Jira",
-                                on_click=add_comment_to_issue,
-                                kwargs={'url': jira_url, 'comment_body': st.session_state.jira_test_cases_response}
-                            ):
-                                st.success("Комментарий отправлен!")
+        st.success("Готово.")
+        st.caption(f"Локаторов: **{total_locators}**, валидных: **{valid_locators}**.")
+        if isinstance(meta.metrics, RunMetrics):
+            cols = st.columns(3)
+            cols[0].metric("Accuracy", f"{(meta.metrics.accuracy or 0)*100:.1f}%" if meta.metrics.accuracy is not None else "—")
+            cols[1].metric("Fix rate", f"{(meta.metrics.fix_rate or 0)*100:.1f}%" if meta.metrics.fix_rate is not None else "—")
+            cols[2].metric("Correctness", f"{(meta.metrics.correctness or 0)*100:.1f}%" if meta.metrics.correctness is not None else "—")
+        # MLflow: логируем параметры и метрики запуска (если включено в env)
+        log_locator_run(
+            run_id=run_id,
+            params={
+                "url": meta.url,
+                "mode": meta.mode.kind,
+                "chunk_size": (meta.limits or {}).get("chunk_size"),
+                "fix_chunk_size": (meta.limits or {}).get("fix_chunk_size"),
+                "max_total_elements": (meta.limits or {}).get("max_total_elements"),
+                "max_children_elements": (meta.limits or {}).get("max_children_elements"),
+                "llm_chat_model": meta.llm.chat_model if meta.llm else None,
+                "llm_tools_model": meta.llm.tools_model if meta.llm else None,
+                "llm_browser_model": meta.llm.browser_model if meta.llm else None,
+            },
+            metrics={
+                "total_locators": float(total_locators),
+                "valid_locators": float(valid_locators),
+                "accuracy": float(meta.metrics.accuracy) if isinstance(meta.metrics, RunMetrics) and meta.metrics.accuracy is not None else None,
+                "fix_rate": float(meta.metrics.fix_rate) if isinstance(meta.metrics, RunMetrics) and meta.metrics.fix_rate is not None else None,
+                "correctness": float(meta.metrics.correctness) if isinstance(meta.metrics, RunMetrics) and meta.metrics.correctness is not None else None,
+                "total_s": float(meta.timings.total_s) if isinstance(meta.timings, RunTimings) and meta.timings.total_s is not None else None,
+                "generate_locators_s": float(meta.timings.generate_locators_s) if isinstance(meta.timings, RunTimings) and meta.timings.generate_locators_s is not None else None,
+                "validate_locators_s": float(meta.timings.validate_locators_s) if isinstance(meta.timings, RunTimings) and meta.timings.validate_locators_s is not None else None,
+                "fix_locators_s": float(meta.timings.fix_locators_s) if isinstance(meta.timings, RunTimings) and meta.timings.fix_locators_s is not None else None,
+            },
+            tags={
+                "component": "locator-generator",
+                "db_enabled": _env_bool("DB_ENABLED", False),
+            },
+        )
+        st.session_state["el_attr_locators"] = locators or []
+        st.session_state["el_attr_selector_stats"] = selector_stats or {}
+        return total_locators
+    except Exception as e:
+        st.error(f"Ошибка при выполнении сценария: {e}")
+        return None
+    finally:
+        progress_bar.empty()
+        status_text.empty()
 
 
-                            feedback_widget(
-                                    url=jira_url,
-                                    response = st.session_state.jira_test_cases_response,
-                                    model_params=st.session_state.model_params,
-                                    user_email=st.session_state.user_email
-                                )
+def main_page():
+    # Одна колонка на всю ширину контейнера (с layout="centered" так удобнее, чем два узких столбца).
+    section_label("Параметры запуска")
 
-                case AppSettings.TYPE_OPTION_EL_ATTR:
-                    st.subheader("Генератор XPath‑локаторов")
+    target_url = st.text_input("URL страницы", placeholder="https://example.com")
+    mode = st.radio(
+        "Режим",
+        options=("По тегам", "По описанию", "От родителя"),
+        horizontal=True,
+        key="el_attr_mode",
+    )
 
-                    target_url = st.text_input(
-                        "URL страницы",
-                        placeholder="https://portal.apps.k8s.dev.domoy.ru",
-                        help="Введите URL страницы для анализа"
-                    )
+    selected_selectors, prompt_description, parent_xpath = [], "", ""
+    if mode == "По тегам":
+        selected_selectors = st.multiselect(
+            "Теги",
+            options=AVAILABLE_SELECTORS,
+            default=DEFAULT_SELECTORS,
+            key="el_attr_selectors",
+        )
+    elif mode == "По описанию":
+        prompt_description = st.text_input("Описание элемента", key="el_attr_prompt_desc")
+    else:
+        parent_xpath = st.text_input("XPath родителя", key="el_attr_parent_xpath")
 
-                    # Блок авторизации
-                    st.markdown("### Авторизация")
-                    needs_auth = st.checkbox(
-                        "Требуется авторизация на странице",
-                        value=False,
-                        help="Отметьте, если страница требует входа в систему",
-                        key="el_attr_needs_auth",
-                    )
-                    
-                    auth_username = ""
-                    auth_password = ""
-                    auth_type = "custom"
-                    auth_organization = ""
-                    auth_custom_instructions = ""
-                    
-                    if needs_auth:
-                        # Выбор типа авторизации
-                        auth_type = st.selectbox(
-                            "Тип авторизации",
-                            options=["gosuslugi", "domrf_employee", "eisjks_bank", "eisjks_supplier", "custom"],
-                            format_func=lambda x: {
-                                "gosuslugi": "Госуслуги",
-                                "domrf_employee": "Сотрудники ГК ДОМ.РФ",
-                                "eisjks_bank": "ЕИСЖС ID (Банк)",
-                                "eisjks_supplier": "ЕИСЖС ID (Поставщик)",
-                                "custom": "Пользовательский сценарий"
-                            }[x],
-                            index=4,  # По умолчанию "custom"
-                            help="Выберите подходящий сценарий авторизации",
-                            key="el_attr_auth_type",
-                        )
-                        
-                        # Поля для логина и пароля
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            auth_username = st.text_input(
-                                "Логин",
-                                placeholder="Введите логин",
-                                key="el_attr_auth_username",
-                            )
-                        with col2:
-                            auth_password = st.text_input(
-                                "Пароль",
-                                type="password",
-                                placeholder="Введите пароль",
-                                key="el_attr_auth_password",
-                            )
-                        
-                        # Поле для организации (для определенных типов авторизации)
-                        if auth_type in ["gosuslugi", "eisjks_bank", "eisjks_supplier"]:
-                            if auth_type == "gosuslugi":
-                                org_placeholder = "Например: МИНСТРОЙ РБ"
-                                org_help = "Название организации для выбора после авторизации через Госуслуги"
-                            elif auth_type == "eisjks_bank":
-                                org_placeholder = "АО БАНК ДОМ.РФ"
-                                org_help = "Для банка обычно используется 'АО БАНК ДОМ.РФ'"
-                            else:  # eisjks_supplier
-                                org_placeholder = "Например: АО Кошки"
-                                org_help = "Название организации поставщика услуг"
-                            
-                            auth_organization = st.text_input(
-                                "Организация",
-                                placeholder=org_placeholder,
-                                help=org_help,
-                                key="el_attr_auth_organization",
-                            )
-                        
-                        # Поле для пользовательских инструкций (только для custom типа)
-                        if auth_type == "custom":
-                            auth_custom_instructions = st.text_area(
-                                "Инструкции для авторизации",
-                                placeholder="Опишите шаги авторизации:\n1. Нажать кнопку 'Войти'\n2. Заполнить форму\n3. Нажать 'Отправить'",
-                                help="Подробно опишите, как должна проходить авторизация на данной странице",
-                                key="el_attr_auth_custom_instructions",
-                            )
+    selected_project_id, selected_project_name = None, None
+    if _env_bool("DB_ENABLED", False):
+        from streamlit_modules.projects_page import get_project_list_for_selector, get_project_id_from_selection
 
-                    st.markdown("### Настройки генерации")
-                    mode = st.radio(
-                        "Режим",
-                        options=("По тегам", "По описанию", "От родительского элемента"),
-                        horizontal=True,
-                        key="el_attr_mode",
-                    )
+        project_options = get_project_list_for_selector()
+        if project_options:
+            labels = [opt.split("|", 1)[1] for opt in project_options]
+            sel = st.selectbox("Проект", options=labels, index=0, key="generator_project")
+            selected_project_id = get_project_id_from_selection(project_options[labels.index(sel)])
+            selected_project_name = sel
 
-                    generate_selenide = st.checkbox(
-                        "Сгенерировать SelenideElement",
-                        value=False,
-                        help="Оставьте выключенным, если нужны только XPath и описания",
-                        key="el_attr_generate_selenide",
-                    )
+    needs_auth = st.checkbox("Требуется авторизация", value=False, key="el_attr_needs_auth")
+    keyring_enabled = False
+    auth_username, auth_password = "", ""
+    auth_custom_instructions = ""
 
-                    selected_selectors = []
-                    prompt_description = ""
-                    parent_xpath = ""
+    if needs_auth:
+        keyring_enabled = is_keyring_available()
+        c1, c2 = st.columns(2)
+        auth_username = c1.text_input("Логин", key="el_attr_auth_username")
+        auth_password = c2.text_input("Пароль", type="password", key="el_attr_auth_password")
+        if keyring_enabled:
+            stored = load_credentials(target_url)
+            if stored and not auth_username and not auth_password:
+                auth_username, auth_password = stored.username, stored.password
+                st.caption("Используются сохранённые учётные данные.")
+        auth_custom_instructions = st.text_area(
+            "Шаги авторизации для агента",
+            key="el_attr_auth_custom_instructions",
+            help="Кратко опишите, куда нажать и что ввести (логин/пароль подставятся из полей выше).",
+        )
+        with st.expander("Хранение учётных данных"):
+            if not keyring_enabled:
+                st.info("`keyring` недоступен.")
+            else:
+                st.checkbox("Запомнить логин/пароль", value=False, key="el_attr_save_creds")
+                if st.button("Удалить сохранённые данные"):
+                    clear_credentials(target_url)
+                    st.success("Удалено.")
 
-                    if mode == "По тегам":
-                        selected_selectors = st.multiselect(
-                            "Теги для анализа",
-                            options=AVAILABLE_SELECTORS,
-                            default=DEFAULT_SELECTORS,
-                            help="По умолчанию: button, input.",
-                            key="el_attr_selectors",
-                        )
-                    elif mode == "По описанию":
-                        prompt_description = st.text_input(
-                            "Описание элемента (AI-поиск)",
-                            placeholder="Например: зелёная кнопка 'Войти' в правом верхнем углу",
-                            help="browser_use ищет один элемент по описанию и строит локатор",
-                            key="el_attr_prompt_desc",
-                        )
-                    else:  # "От родительского элемента"
-                        parent_xpath = st.text_input(
-                            "XPath родительского элемента",
-                            placeholder="//div[contains(@class, 'Search__Container')]",
-                            help="Система найдет все дочерние элементы внутри указанного элемента и сгенерирует для них локаторы",
-                            key="el_attr_parent_xpath",
-                        )
+    generate_selenide = st.checkbox("Генерировать SelenideElement", value=False, key="el_attr_generate_selenide")
+    run_btn = st.button("Запустить", type="primary", width="stretch")
 
-                    st.markdown("---")
+    st.divider()
+    section_label("Результат")
 
-                    def render_locator_panel(locators):
-                        st.markdown("**XPath‑локаторы**")
+    auth_kwargs = {
+        "needs_auth": needs_auth,
+        "auth_username": auth_username if needs_auth else None,
+        "auth_password": auth_password if needs_auth else None,
+        "auth_custom_instructions": auth_custom_instructions if needs_auth else None,
+    }
+    limit_kwargs = {
+        "chunk_size": int(st.session_state.get("el_attr_chunk_size", 6)),
+        "fix_chunk_size": int(st.session_state.get("el_attr_fix_chunk_size", 5)),
+        "max_total_elements": int(st.session_state.get("el_attr_max_total_elements", 400)),
+        "max_children_elements": int(st.session_state.get("el_attr_max_children_elements", 400)),
+    }
+    project_kwargs = {"project_id": selected_project_id, "project_name": selected_project_name}
 
-                        rows = []
-                        if locators:
-                            first = locators[0]
-                            if isinstance(first, dict):
-                                for item in locators:
-                                    exists = item.get("exists")
-                                    count = item.get("count")
-                                    description = item.get("description", "")
-                                    selenide_element = item.get("selenide_element", "—")
+    if run_btn:
+        if not target_url or not target_url.strip():
+            st.warning("Введите URL страницы.")
+        elif needs_auth and (not auth_username or not auth_password):
+            st.warning("Укажите логин и пароль.")
+        elif mode == "По описанию" and not prompt_description:
+            st.warning("Введите описание элемента.")
+        elif mode == "От родителя" and not parent_xpath:
+            st.warning("Введите XPath родителя.")
+        else:
+            kw = dict(
+                url=target_url,
+                generate_selenide=generate_selenide,
+                **auth_kwargs,
+                **limit_kwargs,
+                **project_kwargs,
+            )
+            if mode == "По тегам":
+                kw["selectors"] = selected_selectors or DEFAULT_SELECTORS
+            elif mode == "По описанию":
+                kw.update(selectors=None, prompt_description=prompt_description)
+            else:
+                kw.update(selectors=None, prompt_description=None, parent_xpath=parent_xpath)
+            total = _execute_workflow(**kw)
+            if total == 0:
+                st.warning("Локаторы не найдены.")
 
-                                    if not exists:
-                                        status_icon = "❌"
-                                    else:
-                                        if isinstance(count, int) and count > 1:
-                                            status_icon = "⚠️"
-                                        else:
-                                            status_icon = "✅"
+    saved_locators = st.session_state.get("el_attr_locators")
+    selector_stats = st.session_state.get("el_attr_selector_stats", {})
 
-                                    rows.append(
-                                        {
-                                            "XPath": item.get("xpath", ""),
-                                            "Описание": description if description else "—",
-                                            "Статус": status_icon,
-                                            "Кол-во элементов": count if count is not None else "?",
-                                            "SelenideElement": selenide_element,
-                                        }
-                                    )
-                            else:
-                                for xpath in locators:
-                                    rows.append(
-                                        {
-                                            "XPath": xpath,
-                                            "Описание": "—",
-                                            "Статус": "?",
-                                            "Кол-во элементов": "?",
-                                            "SelenideElement": "—",
-                                        }
-                                    )
+    if not saved_locators and not run_btn:
+        st.info("Введите URL и нажмите «Запустить».")
 
-                        locator_output = "\n".join(row["XPath"] for row in rows) if rows else ""
+    if selector_stats:
+        cols = st.columns(min(len(selector_stats), 4))
+        for col, (sel, count) in zip(cols, selector_stats.items()):
+            col.metric(f"`{sel}`", count)
 
-                        st.download_button(
-                            label="Скачать .txt",
-                            data=locator_output,
-                            file_name="xpath_locators.txt",
-                            mime="text/plain",
-                        )
+    if saved_locators:
+        _render_locator_panel(saved_locators)
+    elif saved_locators == []:
+        st.warning("Локаторы не сгенерированы.")
 
-                        view_mode = st.radio(
-                            "Отображение",
-                            options=("Таблица", "Текст"),
-                            horizontal=True,
-                            key="locator_view_mode",
-                        )
 
-                        if view_mode == "Текст":
-                            text_output = []
-                            for row in rows:
-                                xpath = row["XPath"]
-                                description = row.get("Описание", "—")
-                                selenide_line = row.get("SelenideElement", "—")
-                                parts = [xpath]
-                                if description and description != "—":
-                                    parts.append(f"# {description}")
-                                text_output.append("  ".join(parts))
-                                if selenide_line and selenide_line != "—":
-                                    text_output.append(selenide_line)
-                            st.code("\n".join(text_output) if text_output else "—", language="text")
-                        else:
-                            locator_df = pd.DataFrame(rows or [{"XPath": "—", "Описание": "—", "Статус": "—", "Кол-во элементов": "—", "SelenideElement": "—"}])
-                            locator_df.index = locator_df.index + 1
-                            locator_df.index.name = "№"
-                            st.dataframe(
-                                locator_df,
-                                width="stretch",
-                            )
-
-                    if mode == "По тегам":
-                        if st.button("Собрать по тегам и сгенерировать локаторы"):
-                            # Проверяем URL
-                            if not target_url or not target_url.strip():
-                                st.warning("Сначала введите URL страницы.")
-                            # Проверяем данные авторизации если она нужна
-                            elif needs_auth and (not auth_username or not auth_password):
-                                st.warning("Для авторизации необходимо указать логин и пароль.")
-                            else:
-                                # Создаем прогресс-бар и контейнер для статуса
-                                progress_bar = st.progress(0)
-                                status_text = st.empty()
-                                
-                                def update_progress(progress: float, message: str):
-                                    progress_bar.progress(progress)
-                                    status_text.text(message)
-                                
-                                try:
-                                    result = run_el_attr_workflow(
-                                        target_url,
-                                        selected_selectors or DEFAULT_SELECTORS,
-                                        generate_selenide=generate_selenide,
-                                        progress_callback=update_progress,
-                                        needs_auth=needs_auth,
-                                        auth_username=auth_username if needs_auth else None,
-                                        auth_password=auth_password if needs_auth else None,
-                                        auth_type=auth_type if needs_auth else "custom",
-                                        auth_organization=auth_organization if needs_auth else None,
-                                        auth_custom_instructions=auth_custom_instructions if needs_auth else None,
-                                    )
-                                    if isinstance(result, dict):
-                                        locators = result.get("locators") or []
-                                        selector_stats = result.get("selector_stats") or {}
-                                    else:
-                                        locators = result or []
-                                        selector_stats = {}
-
-                                    total_locators = len(locators)
-                                    valid_locators = sum(
-                                        1 for item in (locators or []) if isinstance(item, dict) and item.get("exists")
-                                    )
-                                    
-                                    # Очищаем прогресс-бар и статус после завершения
-                                    progress_bar.empty()
-                                    status_text.empty()
-                                    
-                                    st.success("Готово.")
-                                    st.caption(
-                                        f"Локаторов: **{total_locators}**, валидных: **{valid_locators}**."
-                                    )
-
-                                    st.session_state["el_attr_locators"] = locators or []
-                                    st.session_state["el_attr_selector_stats"] = selector_stats or {}
-                                except Exception as e:
-                                    # Очищаем прогресс-бар и статус при ошибке
-                                    progress_bar.empty()
-                                    status_text.empty()
-                                    st.error(f"Ошибка при выполнении сценария: {e}")
-                    elif mode == "По описанию":
-                        if st.button("Найти по описанию и сгенерировать локатор"):
-                            if not target_url or not target_url.strip():
-                                st.warning("Сначала введите URL страницы.")
-                            elif not prompt_description:
-                                st.warning("Сначала введите описание элемента.")
-                            elif needs_auth and (not auth_username or not auth_password):
-                                st.warning("Для авторизации необходимо указать логин и пароль.")
-                            else:
-                                # Создаем прогресс-бар и контейнер для статуса
-                                progress_bar = st.progress(0)
-                                status_text = st.empty()
-                                
-                                def update_progress(progress: float, message: str):
-                                    progress_bar.progress(progress)
-                                    status_text.text(message)
-                                
-                                try:
-                                    result = run_el_attr_workflow(
-                                        target_url,
-                                        selectors=None,
-                                        prompt_description=prompt_description,
-                                        generate_selenide=generate_selenide,
-                                        progress_callback=update_progress,
-                                        needs_auth=needs_auth,
-                                        auth_username=auth_username if needs_auth else None,
-                                        auth_password=auth_password if needs_auth else None,
-                                        auth_type=auth_type if needs_auth else "custom",
-                                        auth_organization=auth_organization if needs_auth else None,
-                                        auth_custom_instructions=auth_custom_instructions if needs_auth else None,
-                                    )
-                                    if isinstance(result, dict):
-                                        locators = result.get("locators") or []
-                                        selector_stats = result.get("selector_stats") or {}
-                                    else:
-                                        locators = result or []
-                                        selector_stats = {}
-
-                                    total_locators = len(locators)
-                                    valid_locators = sum(
-                                        1 for item in (locators or []) if isinstance(item, dict) and item.get("exists")
-                                    )
-                                    
-                                    # Очищаем прогресс-бар и статус после завершения
-                                    progress_bar.empty()
-                                    status_text.empty()
-                                    
-                                    st.success("Готово.")
-                                    st.caption(
-                                        f"Локаторов: **{total_locators}**, валидных: **{valid_locators}**."
-                                    )
-                                    if total_locators == 0:
-                                        st.warning(
-                                            "Не удалось найти элемент по описанию и сгенерировать локатор. "
-                                            "Попробуйте ещё раз."
-                                        )
-
-                                    st.session_state["el_attr_locators"] = locators or []
-                                    st.session_state["el_attr_selector_stats"] = selector_stats or {}
-                                except Exception as e:
-                                    # Очищаем прогресс-бар и статус при ошибке
-                                    progress_bar.empty()
-                                    status_text.empty()
-                                    st.error(f"Ошибка при выполнении сценария: {e}")
-                    else:  # "От родительского элемента"
-                        if st.button("Собрать дочерние элементы и сгенерировать локаторы"):
-                            if not target_url or not target_url.strip():
-                                st.warning("Сначала введите URL страницы.")
-                            elif not parent_xpath:
-                                st.warning("Сначала введите XPath родительского элемента.")
-                            elif needs_auth and (not auth_username or not auth_password):
-                                st.warning("Для авторизации необходимо указать логин и пароль.")
-                            else:
-                                # Создаем прогресс-бар и контейнер для статуса
-                                progress_bar = st.progress(0)
-                                status_text = st.empty()
-                                
-                                def update_progress(progress: float, message: str):
-                                    progress_bar.progress(progress)
-                                    status_text.text(message)
-                                
-                                try:
-                                    result = run_el_attr_workflow(
-                                        target_url,
-                                        selectors=None,
-                                        prompt_description=None,
-                                        parent_xpath=parent_xpath,
-                                        generate_selenide=generate_selenide,
-                                        progress_callback=update_progress,
-                                        needs_auth=needs_auth,
-                                        auth_username=auth_username if needs_auth else None,
-                                        auth_password=auth_password if needs_auth else None,
-                                        auth_type=auth_type if needs_auth else "custom",
-                                        auth_organization=auth_organization if needs_auth else None,
-                                        auth_custom_instructions=auth_custom_instructions if needs_auth else None,
-                                    )
-                                    if isinstance(result, dict):
-                                        locators = result.get("locators") or []
-                                        selector_stats = result.get("selector_stats") or {}
-                                    else:
-                                        locators = result or []
-                                        selector_stats = {}
-
-                                    total_locators = len(locators)
-                                    valid_locators = sum(
-                                        1 for item in (locators or []) if isinstance(item, dict) and item.get("exists")
-                                    )
-                                    
-                                    # Очищаем прогресс-бар и статус после завершения
-                                    progress_bar.empty()
-                                    status_text.empty()
-                                    
-                                    st.success("Готово.")
-                                    st.caption(
-                                        f"Локаторов: **{total_locators}**, валидных: **{valid_locators}**."
-                                    )
-                                    if total_locators == 0:
-                                        st.warning(
-                                            "Не удалось найти дочерние элементы. "
-                                            "Проверьте правильность XPath родительского элемента."
-                                        )
-
-                                    st.session_state["el_attr_locators"] = locators or []
-                                    st.session_state["el_attr_selector_stats"] = selector_stats or {}
-                                except Exception as e:
-                                    # Очищаем прогресс-бар и статус при ошибке
-                                    progress_bar.empty()
-                                    status_text.empty()
-                                    st.error(f"Ошибка при выполнении сценария: {e}")
-
-                    saved_locators = st.session_state.get("el_attr_locators")
-                    selector_stats = st.session_state.get("el_attr_selector_stats", {})
-
-                    if selector_stats:
-                        st.markdown("**Найденные элементы по выбранным селекторам:**")
-                        for sel, count in selector_stats.items():
-                            st.markdown(f"- `{sel}`: **{count}** элементов")
-
-                    if saved_locators:
-                        render_locator_panel(saved_locators)
-                    elif saved_locators == []:
-                        st.warning(
-                            "Локаторы не были сгенерированы. "
-                            "Попробуйте ещё раз."
-                        )

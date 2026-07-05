@@ -1,6 +1,6 @@
 import asyncio
 import json
-from src.browser_config import create_llm, MAX_CHILDREN_ELEMENTS
+from src.browser_config import create_llm, MAX_CHILDREN_ELEMENTS, MAX_TOTAL_ELEMENTS
 from src.locator_utils import sanitize_selectors
 
 
@@ -135,38 +135,69 @@ async def extract_element_data(elem):
     return data
 
 
-async def collect_elements_by_selectors(page, selectors: list[str]) -> tuple[dict, dict]:
+async def collect_elements_by_selectors(
+    page,
+    selectors: list[str],
+    *,
+    max_total_elements: int = MAX_TOTAL_ELEMENTS,
+) -> tuple[dict, dict]:
     """Собирает элементы по CSS селекторам."""
     elements_data = {}
     selector_stats = {}
+    collected_total = 0
     
     for selector in selectors:
         elements = await page.get_elements_by_css_selector(selector)
         selector_data = []
 
         for elem in elements:
+            if collected_total >= max_total_elements:
+                break
             if await elem.get_bounding_box():
                 element_data = await extract_element_data(elem)
                 selector_data.append(element_data)
+                collected_total += 1
 
         if selector_data:
             elements_data[selector] = selector_data
             selector_stats[selector] = len(selector_data)
+        if collected_total >= max_total_elements:
+            break
 
     return elements_data, selector_stats
 
 
 async def collect_element_by_description(page, description: str) -> tuple[dict, dict]:
     """Собирает элемент по текстовому описанию."""
+    # browser_use иногда возвращает пустую строку/битый JSON при tool-calling,
+    # из-за чего падает pydantic (Invalid JSON: EOF). Ретраим этот кейс.
     llm = create_llm()
-    
-    try:
-        element = await asyncio.wait_for(
-            page.get_element_by_prompt(description, llm=llm), 
-            timeout=60.0
-        )
-    except asyncio.TimeoutError:
-        raise TimeoutError(f"Не удалось найти элемент по описанию за 60 сек.")
+    last_err: Exception | None = None
+    for attempt in range(3):
+        try:
+            element = await asyncio.wait_for(
+                page.get_element_by_prompt(description, llm=llm),
+                timeout=90.0,
+            )
+            last_err = None
+            break
+        except asyncio.TimeoutError as e:
+            last_err = e
+            # нет смысла ретраить бесконечно — пользователь увидит таймаут
+        except Exception as e:
+            # Ловим pydantic/json ошибки (например: "Invalid JSON: EOF ... input_value=''")
+            last_err = e
+            msg = str(e)
+            if ("Invalid JSON" in msg) or ("json_invalid" in msg) or ("ElementResponse" in msg):
+                await asyncio.sleep(1.0 + attempt)
+                llm = create_llm()
+                continue
+            raise
+
+    if last_err:
+        if isinstance(last_err, asyncio.TimeoutError):
+            raise TimeoutError("Не удалось найти элемент по описанию за 90 сек.")
+        raise last_err
     
     if not element:
         raise ValueError("Не удалось найти элемент по описанию.")
@@ -180,7 +211,13 @@ async def collect_element_by_description(page, description: str) -> tuple[dict, 
     return elements_data, selector_stats
 
 
-async def collect_children_elements(page, parent_xpath: str) -> tuple[dict, dict]:
+async def collect_children_elements(
+    page,
+    parent_xpath: str,
+    *,
+    max_children_elements: int = MAX_CHILDREN_ELEMENTS,
+    max_total_elements: int = MAX_TOTAL_ELEMENTS,
+) -> tuple[dict, dict]:
     """Собирает дочерние элементы от родительского XPath."""
     # Проверяем существование родительского элемента
     parent_exists = await page.evaluate(
@@ -218,13 +255,16 @@ async def collect_children_elements(page, parent_xpath: str) -> tuple[dict, dict
         raise ValueError("У родительского элемента нет дочерних элементов")
     
     # Ограничиваем количество обрабатываемых элементов
-    children_to_process = all_children_data[:MAX_CHILDREN_ELEMENTS]
+    # Ограничиваем количество обрабатываемых элементов
+    children_to_process = all_children_data[:max_children_elements]
     
     # Группируем по тегам и фильтруем только видимые
     children_by_tag = {}
     processed_count = 0
     
     for child_data in children_to_process:
+        if processed_count >= max_total_elements:
+            break
         if not child_data.get('isVisible', False):
             continue
         
@@ -383,14 +423,21 @@ async def collect_elements(
     prompt_description: str = None,
     parent_xpath: str = None,
     available_selectors: list[str] = None,
-    default_selectors: list[str] = None
+    default_selectors: list[str] = None,
+    max_total_elements: int = MAX_TOTAL_ELEMENTS,
+    max_children_elements: int = MAX_CHILDREN_ELEMENTS,
 ) -> tuple[dict, dict]:
     """
     Универсальная функция для сбора элементов в зависимости от режима.
     """
     # Режим дочерних элементов
     if parent_xpath:
-        return await collect_children_elements(page, parent_xpath)
+        return await collect_children_elements(
+            page,
+            parent_xpath,
+            max_children_elements=max_children_elements,
+            max_total_elements=max_total_elements,
+        )
     
     # Режим поиска по описанию
     elif prompt_description:
@@ -401,4 +448,8 @@ async def collect_elements(
         normalized_selectors = sanitize_selectors(
             selectors, default_selectors, available_selectors
         )
-        return await collect_elements_by_selectors(page, normalized_selectors)
+        return await collect_elements_by_selectors(
+            page,
+            normalized_selectors,
+            max_total_elements=max_total_elements,
+        )

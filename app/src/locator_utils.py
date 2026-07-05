@@ -1,6 +1,9 @@
 import json
+import logging
 import re
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 
 def chunk_list(items, chunk_size):
@@ -62,16 +65,18 @@ async def validate_locators_on_page(page: Any, locators: list[dict | str]) -> li
     if not locators:
         return validated
 
-    print("\nПроверка XPath-локаторов на странице\n")
     for locator_item in locators:
         if isinstance(locator_item, str):
             xpath = locator_item
             description = ""
             selenide_element = None
+            base: dict[str, Any] = {}
         else:
             xpath = locator_item.get("xpath", "")
             description = locator_item.get("description", "")
             selenide_element = locator_item.get("selenide_element")
+            # сохраняем дополнительные поля (stage, original_index, etc.)
+            base = dict(locator_item)
 
         if not xpath:
             continue
@@ -101,15 +106,14 @@ async def validate_locators_on_page(page: Any, locators: list[dict | str]) -> li
             count = int(result) if result else 0
             exists = count > 0
         except Exception as e:
-            print(f"Ошибка при проверке локатора '{xpath}': {e}")
+            _log.debug("Проверка XPath '%s': %s", xpath, e)
             count = 0
             exists = False
 
-        validated_item = {
-            "xpath": xpath,
-            "exists": bool(exists),
-            "count": count,
-        }
+        validated_item = base
+        validated_item["xpath"] = xpath
+        validated_item["exists"] = bool(exists)
+        validated_item["count"] = count
         if description:
             validated_item["description"] = description
         if selenide_element:
@@ -117,8 +121,12 @@ async def validate_locators_on_page(page: Any, locators: list[dict | str]) -> li
 
         validated.append(validated_item)
 
-        desc_text = f" ({description})" if description else ""
-        print(f"{'✓' if exists else '✗'} [{count}] {xpath}{desc_text}")
+        _log.debug(
+            "XPath %s: count=%s exists=%s",
+            xpath[:80] + ("…" if len(xpath) > 80 else ""),
+            count,
+            exists,
+        )
 
     return validated
 

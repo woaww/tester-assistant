@@ -1,7 +1,9 @@
 import sys
 import asyncio
+import os
 from browser_use import Browser, BrowserProfile, ChatOpenAI
 from dotenv import load_dotenv
+from src.llm_provider import get_browser_llm_model, get_llm_api_key, get_llm_base_url
 
 # Настройка политики событий для Windows
 if sys.platform.startswith("win"):
@@ -26,9 +28,24 @@ BROWSER_ARGS = [
 
 
 DEFAULT_URL = "https://portal.apps.k8s.dev.domoy.ru"
-MAX_ELEMENTS_PER_CHUNK = 6
-MAX_ELEMENTS_PER_FIX_CHUNK = 5
-MAX_CHILDREN_ELEMENTS = 400
+
+def _int_env(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except Exception:
+        return default
+
+
+# Дефолты (как раньше), но остаются настраиваемыми через env/UI
+MAX_ELEMENTS_PER_CHUNK = _int_env("CHUNK_SIZE", 6)
+MAX_ELEMENTS_PER_FIX_CHUNK = _int_env("FIX_CHUNK_SIZE", 5)
+MAX_CHILDREN_ELEMENTS = _int_env("MAX_CHILDREN_ELEMENTS", 400)
+MAX_TOTAL_ELEMENTS = _int_env("MAX_TOTAL_ELEMENTS", 400)
+PAGE_STABILIZE_SECONDS = _int_env("PAGE_STABILIZE_SECONDS", 10)
+READY_STATE_TIMEOUT_SECONDS = _int_env("READY_STATE_TIMEOUT_SECONDS", 20)
 
 
 AVAILABLE_SELECTORS = [
@@ -50,9 +67,9 @@ DEFAULT_SELECTORS = ["span"]
 def create_llm(temperature: float = 0.7) -> ChatOpenAI:
     """Создает экземпляр LLM с заданной температурой."""
     return ChatOpenAI(
-        model="gpt",
-        api_key="-",
-        base_url="http://localhost:8000/v1",
+        model=get_browser_llm_model(),
+        api_key=get_llm_api_key(),
+        base_url=get_llm_base_url(),
         temperature=temperature,
     )
 
@@ -66,7 +83,7 @@ def build_browser_profile() -> BrowserProfile:
         is_local=True,
         use_cloud=False,
         enable_default_extensions=False,
-        wait_for_network_idle_page_load_time=5.0,
+        wait_for_network_idle_page_load_time=10.0,
         maximum_wait_page_load_time=30.0,
         wait_between_actions=1.0,
     )

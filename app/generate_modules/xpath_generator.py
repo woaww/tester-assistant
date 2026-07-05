@@ -1,15 +1,20 @@
-from pathlib import Path
+import json
+import logging
+import re
+
+from src.llm_provider import (
+    create_async_openai_client,
+    get_llm_max_retries,
+    get_llm_timeout_s,
+    get_llm_tools_model,
+)
 from src.logger import log_function_call
 from src.text_constants import Keys
-from src.utils import load_prompts
-from src.utils import generate_response_async
-from src.text_constants import LLM_URL
-import openai
-import json
+from src.utils import generate_response_async, load_prompts
 
+_log = logging.getLogger(__name__)
 
 PROMPTS = load_prompts()
-PROMPT_DUMP_PATH = Path(__file__).resolve().parent.parent / "xpath_prompt.txt"
 TOOLS_LOCATORS = [
     {
         "type": "function",
@@ -97,9 +102,42 @@ def format_prompt(prompt_template, **kwargs):
     return prompt_template.format(**kwargs)
 
 
-def save_prompt_snapshot(prompt: str) -> None:
-    PROMPT_DUMP_PATH.parent.mkdir(parents=True, exist_ok=True)
-    PROMPT_DUMP_PATH.write_text(prompt, encoding="utf-8")
+def _extract_json_block(raw_text: str):
+    if not raw_text:
+        return None
+    text = raw_text.strip()
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+
+    match = re.search(r"```(?:json)?\s*(\{.*\}|\[.*\])\s*```", text, re.DOTALL)
+    if not match:
+        return None
+    try:
+        return json.loads(match.group(1))
+    except Exception:
+        return None
+
+
+def _extract_elements_payload(choice, expected_tool_name: str):
+    tool_calls = choice.message.tool_calls or []
+    if tool_calls:
+        for tool_call in tool_calls:
+            if tool_call.function.name != expected_tool_name:
+                continue
+            payload = json.loads(tool_call.function.arguments)
+            elements = payload.get("elements")
+            if isinstance(elements, list):
+                return elements
+
+    content = choice.message.content or ""
+    parsed = _extract_json_block(content)
+    if isinstance(parsed, dict) and isinstance(parsed.get("elements"), list):
+        return parsed["elements"]
+    if isinstance(parsed, list):
+        return parsed
+    return None
 
 
 @log_function_call()
@@ -114,15 +152,23 @@ async def generate_xpath_locators(elements_data: dict) -> str:
         prompt_template=prompt_template,
         elements_data=json_data
     )
-    # save_prompt_snapshot(formatted_prompt) 
-    
-    response = await generate_response_async(prompt_input=formatted_prompt, temp=0.2,max_tokens=5000, repetition_penalty=1.2, frequency_penalty=0.4)
+
+    response = await generate_response_async(
+        prompt_input=formatted_prompt,
+        temp=0.2,
+        max_tokens=5000,
+        repetition_penalty=1.2,
+        frequency_penalty=0.4,
+    )
     
     return response
 
 
 @log_function_call()
-async def generate_xpath_locators_structured(elements_data: list[dict], max_retries: int = 3) -> list[dict]:
+async def generate_xpath_locators_structured(
+    elements_data: list[dict],
+    max_retries: int | None = None,
+) -> tuple[list[dict], dict]:
     prompt_template = PROMPTS.get("xpath_generator_prompt", {}).get(
         Keys.CONTENT, Keys.EMPTY)
 
@@ -132,18 +178,16 @@ async def generate_xpath_locators_structured(elements_data: list[dict], max_retr
         prompt_template=prompt_template,
         elements_data=json_data
     )
-    
-    # save_prompt_snapshot(formatted_prompt) 
 
-    client = openai.AsyncOpenAI(
-        api_key="-",
-        base_url=LLM_URL,
-    )
+    client = create_async_openai_client()
+    retries = max_retries if isinstance(max_retries, int) else get_llm_max_retries()
+    timeout_s = get_llm_timeout_s()
+    raw_meta: dict = {"request": {"type": "generate_xpath", "count": len(elements_data)}, "responses": []}
     
-    for attempt in range(max_retries):
+    for attempt in range(retries):
         try:
             resp = await client.chat.completions.create(
-                model="tgi",
+                model=get_llm_tools_model(),
                 messages=[
                     {
                         "role": "system",
@@ -155,17 +199,15 @@ async def generate_xpath_locators_structured(elements_data: list[dict], max_retr
                 tool_choice="auto",
                 max_tokens=1000,
                 temperature=0.05,
+                timeout=timeout_s,
             )
+            try:
+                raw_meta["responses"].append(resp.model_dump(mode="json"))
+            except Exception:
+                pass
 
             choice = resp.choices[0]
-            tool_calls = choice.message.tool_calls or []
-            if not tool_calls:
-                raise ValueError("LLM не вернул вызов инструмента get_elements_information")
-
-            arguments = tool_calls[0].function.arguments
-            payload = json.loads(arguments)
-
-            elements = payload.get("elements")
+            elements = _extract_elements_payload(choice, "get_elements_information")
             if not isinstance(elements, list):
                 raise ValueError("Ответ не содержит массива elements")
 
@@ -177,20 +219,25 @@ async def generate_xpath_locators_structured(elements_data: list[dict], max_retr
                 description = item.get("description", "")
                 normalized.append({"xpath": xpath, "description": description})
 
-            return normalized
+            return normalized, raw_meta
             
         except Exception as e:
-            print(f"Ошибка при генерации XPath (попытка {attempt + 1}/{max_retries}): {e}")
-            if attempt < max_retries - 1:
-                print("Повторная попытка...")
+            _log.warning(
+                "Генерация XPath: попытка %s/%s: %s",
+                attempt + 1,
+                retries,
+                e,
+            )
+            if attempt < retries - 1:
                 continue
-            else:
-                print("Все попытки исчерпаны, возвращаем пустой список")
-                return []
+            return [], raw_meta
 
 
 @log_function_call()
-async def generate_selenide_elements_structured(locators: list[dict], max_retries: int = 3) -> list[dict]:
+async def generate_selenide_elements_structured(
+    locators: list[dict],
+    max_retries: int | None = None,
+) -> tuple[list[dict], dict]:
     prompt_template = PROMPTS.get("selenide_element_prompt", {}).get(
         Keys.CONTENT, Keys.EMPTY)
 
@@ -201,17 +248,15 @@ async def generate_selenide_elements_structured(locators: list[dict], max_retrie
         locators=json_data
     )
 
-    # save_prompt_snapshot(formatted_prompt) 
-
-    client = openai.AsyncOpenAI(
-        api_key="-",
-        base_url=LLM_URL,
-    )
+    client = create_async_openai_client()
+    retries = max_retries if isinstance(max_retries, int) else get_llm_max_retries()
+    timeout_s = get_llm_timeout_s()
+    raw_meta: dict = {"request": {"type": "generate_selenide", "count": len(locators)}, "responses": []}
     
-    for attempt in range(max_retries):
+    for attempt in range(retries):
         try:
             resp = await client.chat.completions.create(
-                model="tgi",
+                model=get_llm_tools_model(),
                 messages=[
                     {
                         "role": "system",
@@ -223,17 +268,15 @@ async def generate_selenide_elements_structured(locators: list[dict], max_retrie
                 tool_choice="auto",
                 max_tokens=3000,
                 temperature=0.15,
+                timeout=timeout_s,
             )
+            try:
+                raw_meta["responses"].append(resp.model_dump(mode="json"))
+            except Exception:
+                pass
 
             choice = resp.choices[0]
-            tool_calls = choice.message.tool_calls or []
-            if not tool_calls:
-                raise ValueError("LLM не вернул вызов инструмента get_selenide_elements")
-
-            arguments = tool_calls[0].function.arguments
-            payload = json.loads(arguments)
-
-            elements = payload.get("elements")
+            elements = _extract_elements_payload(choice, "get_selenide_elements")
             if not isinstance(elements, list):
                 raise ValueError("Ответ не содержит массива elements")
 
@@ -247,16 +290,18 @@ async def generate_selenide_elements_structured(locators: list[dict], max_retrie
                     "selenide_element": item.get("selenide_element", ""),
                 })
 
-            return normalized
+            return normalized, raw_meta
             
         except Exception as e:
-            print(f"Ошибка при генерации Selenide (попытка {attempt + 1}/{max_retries}): {e}")
-            if attempt < max_retries - 1:
-                print("Повторная попытка...")
+            _log.warning(
+                "Генерация Selenide: попытка %s/%s: %s",
+                attempt + 1,
+                retries,
+                e,
+            )
+            if attempt < retries - 1:
                 continue
-            else:
-                print("Все попытки исчерпаны, возвращаем исходные данные")
-                return locators
+            return locators, raw_meta
 
 @log_function_call()
 async def generate_selenide_elements(locators: list[dict]) -> str:
@@ -269,8 +314,6 @@ async def generate_selenide_elements(locators: list[dict]) -> str:
         prompt_template=prompt_template,
         locators=json_data
     )
-    # save_prompt_snapshot(formatted_prompt)
-
     response = await generate_response_async(prompt_input=formatted_prompt, temp=0.15, max_tokens=3000, repetition_penalty=1.2, frequency_penalty=0.4)
     return response
 
@@ -279,8 +322,8 @@ async def generate_selenide_elements(locators: list[dict]) -> str:
 async def fix_invalid_xpath_locators(
     invalid_locators: list[dict], 
     elements_data: list[dict], 
-    max_retries: int = 3
-) -> list[dict]:
+    max_retries: int | None = None
+) -> tuple[list[dict], dict]:
     """
     Исправляет некорректные XPath локаторы через LLM.
     
@@ -313,7 +356,7 @@ async def fix_invalid_xpath_locators(
     
     prompt_template = PROMPTS.get("xpath_fix_prompt", {}).get(Keys.CONTENT, "")
     if not prompt_template:
-        print("Промпт для исправления XPath не найден, используем базовый")
+        _log.warning("xpath_fix_prompt не найден в prompts.yaml, используется запасной шаблон")
         prompt_template = """
         Исправь некорректные XPath локаторы на основе данных об элементах и результатов валидации.
         
@@ -333,17 +376,15 @@ async def fix_invalid_xpath_locators(
         fix_data=json_data
     )
     
-    # save_prompt_snapshot(formatted_prompt)
+    client = create_async_openai_client()
+    retries = max_retries if isinstance(max_retries, int) else get_llm_max_retries()
+    timeout_s = get_llm_timeout_s()
+    raw_meta: dict = {"request": {"type": "fix_xpath", "count": len(invalid_locators)}, "responses": []}
     
-    client = openai.AsyncOpenAI(
-        api_key="-",
-        base_url=LLM_URL,
-    )
-    
-    for attempt in range(max_retries):
+    for attempt in range(retries):
         try:
             resp = await client.chat.completions.create(
-                model="tgi",
+                model=get_llm_tools_model(),
                 messages=[
                     {
                         "role": "system",
@@ -355,17 +396,15 @@ async def fix_invalid_xpath_locators(
                 tool_choice="auto",
                 max_tokens=2000,
                 temperature=0.1,
+                timeout=timeout_s,
             )
+            try:
+                raw_meta["responses"].append(resp.model_dump(mode="json"))
+            except Exception:
+                pass
 
             choice = resp.choices[0]
-            tool_calls = choice.message.tool_calls or []
-            if not tool_calls:
-                raise ValueError("LLM не вернул вызов инструмента fix_xpath_locators")
-
-            arguments = tool_calls[0].function.arguments
-            payload = json.loads(arguments)
-
-            elements = payload.get("elements")
+            elements = _extract_elements_payload(choice, "fix_xpath_locators")
             if not isinstance(elements, list):
                 raise ValueError("Ответ не содержит массива elements")
 
@@ -380,9 +419,11 @@ async def fix_invalid_xpath_locators(
 
             # Проверяем соответствие количества
             if len(fixed_locators) != len(invalid_locators):
-                print(f"Предупреждение: LLM вернул {len(fixed_locators)} локаторов вместо ожидаемых {len(invalid_locators)}")
-                
-                # Дополняем или обрезаем до нужного количества
+                _log.warning(
+                    "Исправление XPath: LLM вернул %s локаторов, ожидалось %s",
+                    len(fixed_locators),
+                    len(invalid_locators),
+                )
                 if len(fixed_locators) < len(invalid_locators):
                     # Дополняем исходными локаторами
                     for i in range(len(fixed_locators), len(invalid_locators)):
@@ -394,14 +435,19 @@ async def fix_invalid_xpath_locators(
                     # Обрезаем до нужного количества
                     fixed_locators = fixed_locators[:len(invalid_locators)]
 
-            return fixed_locators
+            return fixed_locators, raw_meta
             
         except Exception as e:
-            print(f"Ошибка при исправлении XPath (попытка {attempt + 1}/{max_retries}): {e}")
-            if attempt < max_retries - 1:
-                print("Повторная попытка...")
+            _log.warning(
+                "Исправление XPath: попытка %s/%s: %s",
+                attempt + 1,
+                retries,
+                e,
+            )
+            if attempt < retries - 1:
                 continue
-            else:
-                print("Все попытки исчерпаны, возвращаем исходные локаторы")
-                return [{"xpath": loc.get("xpath", ""), "description": loc.get("description", "")} for loc in invalid_locators]
+            return [
+                {"xpath": loc.get("xpath", ""), "description": loc.get("description", "")}
+                for loc in invalid_locators
+            ], raw_meta
 

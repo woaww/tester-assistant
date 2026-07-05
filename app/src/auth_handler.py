@@ -1,16 +1,12 @@
 import asyncio
-from browser_use import Browser, Agent
+import logging
+
+from browser_use import Agent, Browser
+
 from src.browser_config import create_llm
 from src.utils import load_prompts
 
-
-AUTH_TYPES = {
-    "gosuslugi": "Госуслуги",
-    "domrf_employee": "Сотрудники ГК ДОМ.РФ", 
-    "eisjks_bank": "ЕИСЖС ID (Банк)",
-    "eisjks_supplier": "ЕИСЖС ID (Поставщик)",
-    "custom": "Пользовательский сценарий"
-}
+_log = logging.getLogger(__name__)
 
 
 async def authenticate_user(
@@ -18,27 +14,17 @@ async def authenticate_user(
     url: str,
     username: str,
     password: str,
-    auth_type: str = "custom",
-    organization: str = None,
-    custom_instructions: str = None,
-    progress_callback=None
+    custom_instructions: str | None = None,
+    progress_callback=None,
 ) -> None:
     """
     Выполняет авторизацию пользователя на указанной странице.
     """
     if progress_callback:
         progress_callback(0.15, "Выполнение авторизации...")
-    
-    # Создаем данные для авторизации
-    sensitive_data = {
-        'username': username,
-        'password': password
-    }
-    
-    # Генерируем задачу для Agent'а
-    auth_task = _build_auth_task(url, auth_type, organization, custom_instructions)
-    
-    # Создаем и запускаем Agent для авторизации
+
+    sensitive_data = {"username": username, "password": password}
+    auth_task = _build_auth_task(url, custom_instructions)
     auth_llm = create_llm()
     auth_agent = Agent(
         task=auth_task,
@@ -50,33 +36,23 @@ async def authenticate_user(
         max_steps=15,
     )
     
-    # Запускаем авторизацию с таймаутом
     try:
         await asyncio.wait_for(auth_agent.run(), timeout=120)
         await asyncio.sleep(3)
     except asyncio.TimeoutError:
-        print("Авторизация превысила лимит времени ")
+        _log.warning("Авторизация: превышен лимит времени")
     except Exception as e:
-        print(f" Ошибка при авторизации: {e}")
+        _log.warning("Авторизация: ошибка агента: %s", e)
 
 
-def _build_auth_task(url: str, auth_type: str, organization: str = None, custom_instructions: str = None) -> str:
-    """
-    Создает задачу для авторизации.
-    """
-    # Загружаем промпты из файла
+def _build_auth_task(url: str, custom_instructions: str | None = None) -> str:
+    """Формирует задачу для агента: базовый промпт auth_custom + опциональные шаги пользователя."""
     prompts = load_prompts()
-    
-    # Определяем ключ промпта
-    prompt_key = f"auth_{auth_type}"
-    auth_prompt = prompts.get(prompt_key, {}).get('content', '')
+    auth_prompt = prompts.get("auth_custom", {}).get("content", "")
 
-    task = f'Перейди на страницу {url} и выполни авторизацию.\n\n{auth_prompt}'
+    task = f"Перейди на страницу {url} и выполни авторизацию.\n\n{auth_prompt}"
 
-    if organization and auth_type in ['gosuslugi', 'eisjks_bank', 'eisjks_supplier']:
-        task += f'\n\nВАЖНО: При выборе организации выбери "{organization}".'
+    if custom_instructions:
+        task += f"\n\nПОЛЬЗОВАТЕЛЬСКИЕ ИНСТРУКЦИИ:\n{custom_instructions}"
 
-    if auth_type == 'custom' and custom_instructions:
-        task += f'\n\nПОЛЬЗОВАТЕЛЬСКИЕ ИНСТРУКЦИИ:\n{custom_instructions}'
-    
     return task

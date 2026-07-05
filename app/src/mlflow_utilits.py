@@ -1,89 +1,62 @@
-import mlflow
-import json
-from datetime import datetime
-# from datetime 
-# import datetime
-import uuid
-from mlflow.tracking import MlflowClient
-import tempfile
-# import datetime
+import logging
 import os
-from typing import Dict, Optional, Any
-from mlflow.entities import AssessmentSource, AssessmentSourceType
+
+import mlflow
+
+_log = logging.getLogger(__name__)
 
 
-def init_mlflow():
-    mlflow.set_tracking_uri("http://d-gpgpu-a100-01.ct.ahml1.ru:5001")
-    client = MlflowClient()
-    experiment_name = "tester-assistant"
-    experiment = client.get_experiment_by_name(experiment_name)
-    if experiment is None:
-        client.create_experiment(experiment_name)
-    mlflow.set_experiment(experiment_name=experiment_name)
-    mlflow.openai.autolog()
+def init_mlflow() -> None:
+    """
+    Инициализация MLflow.
+    По умолчанию отключено (MLFLOW_ENABLED=false), чтобы локальный запуск
+    не зависел от корпоративного трекинг-сервера.
+    """
+    enabled = os.getenv("MLFLOW_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+    if not enabled:
+        return
 
-            
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "").strip() or "file://mlruns"
+    experiment_name = os.getenv("MLFLOW_EXPERIMENT_NAME", "tester-assistant").strip()
+    try:
+        mlflow.set_tracking_uri(tracking_uri)
+        mlflow.set_experiment(experiment_name=experiment_name)
+        try:
+            mlflow.openai.autolog()
+        except Exception:
+            # не критично, если конкретная autolog интеграция недоступна
+            pass
+    except Exception as e:
+        _log.warning("MLflow отключён из-за ошибки инициализации: %s", e)
 
-def log_to_mlflow(
-    url: str,
-    path: str,
-    method: str,
-    response: str,
-    rating: str,
-    response_time_ms: float,
-    model_params: dict = None,
-    user_email: str = None
+
+def log_locator_run(
+    run_id: str,
+    params: dict | None = None,
+    metrics: dict | None = None,
+    tags: dict | None = None,
 ) -> None:
     """
-    Логирует взаимодействие с LLM в MLflow c улучшенным отображением.
+    Логирование результатов запуска генерации локаторов в MLflow.
+    Безопасно: при любой ошибке не прерывает основной сценарий.
     """
-    run_name = f"LLM_Response_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
-    unique_id = uuid.uuid4().hex[:8]
+    enabled = os.getenv("MLFLOW_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+    if not enabled:
+        return
 
-    with mlflow.start_run(run_name=run_name):
-        # ---------- Параметры ----------
-        params = {
-            "url": url,
-            "path": path,
-            "method": method,
-        }
-        if model_params:
-            params.update(model_params)
-        mlflow.log_params(params)
+    try:
+        with mlflow.start_run(run_name=f"locator_run_{run_id}"):
+            if params:
+                mlflow.log_params({k: v for k, v in params.items() if v is not None})
+            if metrics:
+                numeric_metrics = {}
+                for k, v in metrics.items():
+                    if isinstance(v, (int, float)) and v is not None:
+                        numeric_metrics[k] = float(v)
+                if numeric_metrics:
+                    mlflow.log_metrics(numeric_metrics)
+            if tags:
+                mlflow.set_tags({k: str(v) for k, v in tags.items() if v is not None})
+    except Exception as e:
+        _log.warning("MLflow: не удалось записать run: %s", e)
 
-        # ---------- Метрики ----------
-        mlflow.log_metric("response_time_ms", response_time_ms)
-        mlflow.log_metric("rating", 1 if rating == "like" else 0)
-
-        # ---------- Теги ----------
-        mlflow.set_tag("status", rating)
-        mlflow.set_tag("request_path", path)
-        mlflow.set_tag("mlflow.runName", run_name)
-        if user_email:
-            mlflow.set_tag("user", user_email)
-
-        # ---------- Логируем текст ответа отдельным файлом ----------
-        with tempfile.NamedTemporaryFile("w", delete=False, suffix=f"_{unique_id}.txt", encoding="utf-8") as tmp:
-            tmp.write(response)
-            tmp_path = tmp.name
-        mlflow.log_artifact(tmp_path, artifact_path="text_response")
-        os.remove(tmp_path)
-
-        # ---------- Логируем JSON-пакет (удобно смотреть в UI) ----------
-        response_data = {
-            "url": url,
-            "path": path,
-            "method": method,
-            "response": response,
-            "rating": rating,
-            "response_time_ms": response_time_ms,
-            "timestamp": datetime.now().isoformat(),
-            "model_params": model_params,
-            "user_email": user_email
-        }
-
-        json_name = f"response_{unique_id}.json"
-        with open(json_name, "w", encoding="utf-8") as f:
-            json.dump(response_data, f, indent=2, ensure_ascii=False)
-        mlflow.log_artifact(json_name, artifact_path="json_payload")
-        os.remove(json_name)
